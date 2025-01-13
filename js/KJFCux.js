@@ -1,96 +1,208 @@
-function getEventDate(eventDate) {
-    let dateParts = eventDate.split('.');
-    let day = parseInt(dateParts[0]);
-    let month = parseInt(dateParts[1]) - 1;
-    let year = parseInt(dateParts[2]);
-
-    return new Date(year, month, day);
-}
-
 let tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
 let tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
     return new bootstrap.Tooltip(tooltipTriggerEl)
 })
 
+
+document.getElementById('add-teilnehmer').addEventListener('click', function () {
+    const container = document.getElementById('teilnehmer-list');
+    const newRow = document.createElement('tr');
+    newRow.innerHTML = `
+        <td>
+            <div>
+                <input type="text" class="form-control" name="Teilnehmer[Vorname][]" placeholder="Vorname" required>
+                <input type="text" class="form-control mb-2" name="Teilnehmer[Name][]" placeholder="Nachname" required>
+            </div>
+        </td>
+        <td>
+            <div>
+                <input type="text" class="form-control mb-2" name="Teilnehmer[Strasse][]" placeholder="Straße/Hausnummer" required>
+                <input type="text" class="form-control" name="Teilnehmer[PLZ][]" placeholder="PLZ" required>
+                <input type="text" class="form-control" name="Teilnehmer[Ort][]" placeholder="Ort" required>
+            </div>
+        </td>
+        <td>
+            <div>
+                <input type="date" class="form-control mb-2" name="Teilnehmer[Geburtsdatum][]" required>
+                <select name="Teilnehmer[Geschlecht][]" class="form-control" required>
+                    <option value="">Bitte wählen</option>
+                    <option value="D">D</option>
+                    <option value="M">M</option>
+                    <option value="W">W</option>
+                </select>
+            </div>
+        </td>
+        <td>
+            <select name="Teilnehmer[Status][]" class="form-control mb-2" required>
+                <option value="1Geschwister">1. Geschwisterkind</option>
+                <option value="2Geschwister">2. Geschwisterkind</option>
+                <option value="WeitereGeschwister">Weitere Geschwisterkinder</option>
+                <option value="Betreuer">Betreuer</option>
+                <option value="Mitarbeiter">Mitarbeiter</option>
+            </select>
+        </td>
+        <td>
+            <div>
+                <select name="Teilnehmer[Essgewohnheiten][]" class="form-control mb-2">
+                    <option selected value="Alles">Alles</option>
+                    <option value="Vegetarisch">Vegetarisch</option>
+                    <option value="Vegan">Vegan</option>
+                    <option value="Sonstiges">Sonstiges</option>
+                </select>
+                <input type="text" class="form-control" name="Teilnehmer[EssgewohnheitenSonstiges][]" placeholder="Sonstige Essgewohnheiten">
+            </div>
+        </td>
+        <td>
+            <div>
+                <select name="Teilnehmer[Unvertraeglichkeiten][0][]" class="form-control mb-2" multiple>
+                    <option selected value="keine">Keine</option>
+                    <option value="Erdnuesse">Erdnüsse</option>
+                    <option value="Gluten">Gluten</option>
+                    <option value="Laktose">Laktose</option>
+                    <option value="Schalenfruechte">Schalenfrüchte</option>
+                    <option value="Schalentiere">Schalentiere</option>
+                    <option value="Sellerie">Sellerie</option>
+                    <option value="Senf">Senf</option>
+                    <option value="Sesam">Sesam</option>
+                    <option value="Soja">Soja</option>
+                    <option value="Sulfite">Sulfite</option>
+                    <option value="Sonstiges">Sonstiges</option>
+                </select>
+                <input type="text" class="form-control" name="Teilnehmer[UnvertraeglichkeitenSonstiges][]" placeholder="Sonstige Unverträglichkeiten">
+            </div>
+        </td>
+    `;
+
+    // Neuen Index berechnen
+    const newIndex = container.querySelectorAll('tr').length;
+
+    // Zur Tabelle hinzufügen
+    container.appendChild(newRow);
+    addEventListenersToRow(newRow, newIndex);
+
+    // Update participant count and total cost
+    updateParticipantCountAndCost();
+});
+
+// Event-Listener für bestehende Felder hinzufügen
+function addEventListenersToRow(row, index) {
+    // Aktualisiere die Namen der Felder mit dem richtigen Index
+    row.querySelectorAll('[name]').forEach(function (input) {
+        const originalName = input.getAttribute('name');
+        input.setAttribute('name', originalName.replace(/\[\d+\]/, `[${index}]`));
+    });
+}
+
+function updateParticipantCountAndCost() {
+    const rows = document.querySelectorAll('#teilnehmer-list tr').length;
+    const costPerPerson = parseInt(document.getElementById('cost-pp').textContent);
+    document.getElementById('participant-count').textContent = rows;
+    document.getElementById('total-cost').textContent = rows * costPerPerson;
+}
+
 document.addEventListener('DOMContentLoaded', function () {
-    const validationMessage = document.querySelector('#age-validation-message');
-    const birthday = Array.from(document.querySelectorAll('.Geburtsdatum'));
-    const average = Array.from(document.querySelectorAll('.average'));
-    const totalAge = document.querySelector('#total-age');
-    const totalAverage = document.querySelector('#average');
-    const eventDate = getEventDate(document.querySelector('#eventdate').textContent);
 
-    function validate() {
-        // Date validation
-        validationMessage.textContent = '';
-        birthday.forEach(function (element) {
-            calculateAgeForRow(element);
+    const verantwortlicherFields = {
+        vorname: document.querySelector('input[name="Verantwortlicher[Vorname]"]'),
+        name: document.querySelector('input[name="Verantwortlicher[Name]"]'),
+        strasse: document.querySelector('input[name="Verantwortlicher[Strasse]"]'),
+        plz: document.querySelector('input[name="Verantwortlicher[PLZ]"]'),
+        ort: document.querySelector('input[name="Verantwortlicher[Ort]"]')
+    };
+
+    const teilnehmerFields = {
+        vorname: document.querySelector('input[name="Teilnehmer[Vorname][]"]'),
+        name: document.querySelector('input[name="Teilnehmer[Name][]"]'),
+        strasse: document.querySelector('input[name="Teilnehmer[Strasse][]"]'),
+        plz: document.querySelector('input[name="Teilnehmer[PLZ][]"]'),
+        ort: document.querySelector('input[name="Teilnehmer[Ort][]"]')
+    };
+
+    function syncFields(source, target) {
+        source.addEventListener('input', function () {
+            target.value = source.value;
         });
-        calculateTotalAge();
     }
 
-    validate();
+    // Synchronize Verantwortlicher fields with the first Teilnehmer fields
+    syncFields(verantwortlicherFields.vorname, teilnehmerFields.vorname);
+    syncFields(verantwortlicherFields.name, teilnehmerFields.name);
+    syncFields(verantwortlicherFields.strasse, teilnehmerFields.strasse);
+    syncFields(verantwortlicherFields.plz, teilnehmerFields.plz);
+    syncFields(verantwortlicherFields.ort, teilnehmerFields.ort);
 
-    // Date validation
-    birthday.forEach(function (element) {
-        element.addEventListener('change', function () {
-            validate();
+    // Synchronize the first Teilnehmer fields with Verantwortlicher fields
+    syncFields(teilnehmerFields.vorname, verantwortlicherFields.vorname);
+    syncFields(teilnehmerFields.name, verantwortlicherFields.name);
+    syncFields(teilnehmerFields.strasse, verantwortlicherFields.strasse);
+    syncFields(teilnehmerFields.plz, verantwortlicherFields.plz);
+    syncFields(teilnehmerFields.ort, verantwortlicherFields.ort);
+
+    // Update participant count and total cost
+    updateParticipantCountAndCost();
+
+    // Funktion zur Steuerung der Anzeige des Freitextfeldes für OU
+    const selectOU = document.getElementById("Organisationseinheit");
+    selectOU.addEventListener('change', function () {
+        const textbox = document.getElementById("OrganisationseinheitSonstige");
+        if (this.value === "extern") {
+            textbox.value = '';
+            textbox.style.display = 'block';
+        } else {
+            textbox.style.display = 'none';
+            textbox.value = this.value;
+        }
+    });
+
+    // Funktion zur Steuerung der Anzeige des Freitextfeldes für Essgewohnheiten
+    document.querySelectorAll('select[name="Teilnehmer[Essgewohnheiten][]"]').forEach(function (select) {
+        toggleTextbox(select, 'EssgewohnheitenSonstiges');
+        select.addEventListener('change', function () {
+            toggleTextbox(this, 'EssgewohnheitenSonstiges');
         });
     });
 
-    document.querySelector('#form').addEventListener('submit', function (event) {
-        validate();
-        if (validationMessage.textContent !== '') {
-            alert(validationMessage.textContent);
-            event.preventDefault();
-        }
+    // Funktion zur Steuerung der Anzeige des Freitextfeldes für Unverträglichkeiten
+    document.querySelectorAll('select[name^="Teilnehmer[Unvertraeglichkeiten]"]').forEach(function (select) {
+        toggleTextbox(select, 'UnvertraeglichkeitenSonstiges');
+        select.addEventListener('change', function () {
+            toggleTextbox(this, 'UnvertraeglichkeitenSonstiges');
+        })
     });
 
-    function calculateTotalAge() {
-        // Update total age
-        let age = 0;
-        let count = 0;
-        average.forEach(function (element) {
-            if (element.textContent !== "") {
-                count++;
-                age += Number(element.textContent);
-            }
+    // Funktion, um das passende Freitextfeld ein- oder auszublenden
+    function toggleTextbox(selectElement, textboxName) {
+        const row = selectElement.closest('tr');
+        const textbox = row.querySelector(`input[name="Teilnehmer[${textboxName}][]"]`);
+        if (selectElement.value === "Sonstiges" || Array.from(selectElement.selectedOptions).some(option => option.value === "Sonstiges")) {
+            textbox.style.display = 'block';
+        } else {
+            textbox.style.display = 'none';
+            textbox.value = ''; // Textbox leeren, wenn sie ausgeblendet wird
+        }
+    }
+
+    // Initiale Event-Listener hinzufügen
+    document.querySelectorAll('#teilnehmer-list tr').forEach(function (row, index) {
+        addEventListenersToRow(row, index);
+    });
+
+    // Funktion, um die Logik auch bei neu hinzugefügten Teilnehmern anzuwenden
+    document.getElementById('add-teilnehmer').addEventListener('click', function () {
+        const lastRow = document.querySelector('#teilnehmer-list tr:last-child');
+        const essgewohnheitenSelect = lastRow.querySelector('select[name="Teilnehmer[Essgewohnheiten][]"]');
+        const unvertraeglichkeitenSelect = lastRow.querySelector('select[name="Teilnehmer[Unvertraeglichkeiten][]"]');
+
+
+        // Event-Listener für die neuen Dropdowns hinzufügen
+        toggleTextbox(essgewohnheitenSelect, 'EssgewohnheitenSonstiges');
+        essgewohnheitenSelect.addEventListener('change', function () {
+            toggleTextbox(this, 'EssgewohnheitenSonstiges');
         });
 
-        if (count !== 0) {
-            totalAge.textContent = age;
-            totalAverage.textContent = (Math.round(age * 100 / count) / 100).toString();
-        }
-
-    }
-
-    function calculateAgeForRow(element) {
-        element.classList.remove('error');
-        let inputDate = element.value;
-        if (inputDate === '') return;
-        let dateRegex = /^(0?[1-9]|[12][0-9]|3[01])[.](0?[1-9]|1[012])[.]((19|20)\d\d)$/;
-        if (!dateRegex.test(inputDate)) {
-            element.classList.add('error');
-            validationMessage.textContent = 'Bitte geben Sie ein gültiges Geburtsdatum im Format DD.MM.YYYY ein.';
-            return;
-        }
-
-        //Mindestalter 10 Jahre
-        let participantAge = getEventDate(inputDate);
-
-        let age = eventDate.getFullYear() - participantAge.getFullYear();
-
-        element.closest('tr').querySelector('td:last-child').textContent = age;
-
-        if (age < 10 || age > 18) {
-            element.classList.add('error');
-            validationMessage.textContent = 'Das Alter muss zwischen 10 und 18 Jahren liegen.';
-            return;
-        }
-        if (age === 10 && eventDate < participantAge.setFullYear(participantAge.getFullYear() + 10)) {
-            element.classList.add('error');
-            validationMessage.textContent = 'Das Mindestalter beträgt 10 Jahre';
-            return;
-        }
-    }
+        toggleTextbox(unvertraeglichkeitenSelect, 'UnvertraeglichkeitenSonstiges');
+        unvertraeglichkeitenSelect.addEventListener('change', function () {
+            toggleTextbox(this, 'UnvertraeglichkeitenSonstiges');
+        });
+    });
 });

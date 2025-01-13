@@ -9,8 +9,13 @@ if (file_exists('config.php')) {
     die('Config not found, please copy config.sample.php to config.php and configure values');
 }
 
-$eventDate = DateTimeImmutable::createFromFormat("d.m.Y  H:i:s", $config['eventdate'] . ' 00:00:00');
-$allowDate = $eventDate->modify('-10 year');
+// Workaround for PHP < 8.0
+if (!function_exists('str_contains')) {
+    function str_contains(string $haystack, string $needle): bool
+    {
+        return '' === $needle || false !== strpos($haystack, $needle);
+    }
+}
 
 function generateRandomString($length = 10): string
 {
@@ -23,23 +28,59 @@ function generateRandomString($length = 10): string
     return $randomString;
 }
 
-function echo_if_isset($foo, $echo = null): void
+function echo_if_isset($array, $key, $echo = null): void
 {
-    if (isset($foo)) {
+    if (isset($array[$key])) {
         if ($echo === null) {
-            echo htmlspecialchars($foo);
+            echo htmlspecialchars($array[$key]);
         } else {
             echo $echo;
         }
     }
 }
 
-function if_isset_dt($foo): string
+function echo_if_check($array, $key, $value, $echo = null): void
 {
-    if (isset($foo)) {
-        return date('d.m.Y', strtotime($foo));
+    if (isset($array[$key]) && $array[$key] === $value) {
+        if ($echo === null) {
+            echo htmlspecialchars($array[$key]);
+        } else {
+            echo $echo;
+        }
+    }
+}
+function echo_sonstiges($array, $key): void
+{
+    if (isset($array[$key])) {
+
+        $sonstiges = explode(':', $array[$key]);
+        if(count($sonstiges) > 1){
+            echo htmlspecialchars($sonstiges[1]);
+        }
+    }
+}
+function echo_if_contains($array, $key, $value, $echo = null): void
+{
+    if (isset($array[$key]) && str_contains($array[$key], $value)) {
+        if ($echo === null) {
+            echo htmlspecialchars($array[$key]);
+        } else {
+            echo $echo;
+        }
+    }
+}
+
+function if_isset_dt($array, $key): string
+{
+    if (isset($array[$key])) {
+        return date('Y-m-d', strtotime($array[$key]));
     }
     return '';
+}
+
+function input($string, $len = 64): string
+{
+    return mb_strimwidth(trim($string), 0, $len);
 }
 
 
@@ -50,96 +91,132 @@ if (isset($_GET['anmeldung']) && ctype_alnum($_GET['anmeldung']) && file_exists(
     $old_xml = simplexml_load_file('./xml/' . $_GET['anmeldung'] . '.xml');
     if ($old_xml) {
         //Convert SimpleXml Object to associative Array
-        $XmlData = json_decode(json_encode($old_xml), TRUE);
+        $XmlData = json_decode(str_replace(':{}',':""',json_encode($old_xml)), TRUE);
         $datafile = $_GET['anmeldung'];
     }
+}else{
+    $XmlData = [
+        "Feuerwehr" => null,
+        "Organisationseinheit" => null,
+        "Verantwortlicher" => [
+            "Vorname" => null,
+            "Name" => null,
+            "Strasse" => null,
+            "PLZ" => null,
+            "Ort" => null,
+            "Funktion" => null,
+            "Telefon" => null,
+            "Email" => null,
+        ],
+        "Persons" => [
+            "Person" => [
+                "Vorname" => null,
+                "Name" => null,
+                "Strasse" => null,
+                "PLZ" => null,
+                "Ort" => null,
+                "Geburtsdatum" => null,
+                "Geschlecht" => null,
+                "Status" => "Betreuer",
+                "Essgewohnheiten" => null,
+                "EssgewohnheitenSonstiges" => null,
+                "Unvertraeglichkeiten" => "keine",
+                "UnvertraeglichkeitenSonstiges" => null
+            ],
+        ],
+    ];
 }
 
-if (isset($_POST['Gruppe']['Feuerwehr']) && isset($_POST['Gruppe']['GruppenName']) && isset($_POST['Persons']['Vorname']) && isset($_POST['Persons']['Nachname']) && isset($_POST['Persons']['Geburtsdatum'])) {
-
+if (isset($_POST['Feuerwehr']) && isset($_POST['Organisationseinheit']) && isset($_POST['Verantwortlicher']) && isset($_POST['Teilnehmer'])) {
     // XML-Daten aufbauen
     $xml = new DOMDocument("1.0", "utf-16");
-
     // Gruppe-Element erstellen
-    $gruppe = $xml->createElement("Gruppe");
-    $xml->appendChild($gruppe);
+    $jf = $xml->createElement("Jugendfeuerwehr");
+    $xml->appendChild($jf);
 
     if ($old_xml === null) {
-        // Feuerwehr, GruppenName, Organisationseinheit
-        $feuerwehr = $xml->createElement("Feuerwehr", mb_strimwidth(trim($_POST["Gruppe"]["Feuerwehr"]), 0, 64));
-        $gruppe->appendChild($feuerwehr);
-
-        $gruppenName = $xml->createElement("GruppenName", mb_strimwidth(trim($_POST["Gruppe"]["GruppenName"]), 0, 64));
-        $gruppe->appendChild($gruppenName);
+        // Neue Daten
+        $feuerwehr = $xml->createElement("Feuerwehr", input($_POST["Feuerwehr"]));
+        $jf->appendChild($feuerwehr);
 
         if (!isset($_POST['Gruppe']["Organisationseinheit"])) {
             $_POST['Gruppe']["Organisationseinheit"] = '';
         }
-        $organisationseinheit = $xml->createElement("Organisationseinheit", mb_strimwidth(trim($_POST["Gruppe"]["Organisationseinheit"]), 0, 64));
-        $gruppe->appendChild($organisationseinheit);
+        $organisationseinheit = $xml->createElement("Organisationseinheit", input($_POST["Organisationseinheit"]));
+        $jf->appendChild($organisationseinheit);
 
         $timeStampAnmeldung = $xml->createElement("TimeStampAnmeldung", (new DateTime())->format("Y-m-d\TH:i:s"));
-        $gruppe->appendChild($timeStampAnmeldung);
+        $jf->appendChild($timeStampAnmeldung);
     } else {
-        // Feuerwehr, GruppenName, Organisationseinheit
+        //Bei Update Feuerwehr, Organisationseinheit nicht ändern
         $feuerwehr = $xml->createElement("Feuerwehr", $XmlData['Feuerwehr']);
-        $gruppe->appendChild($feuerwehr);
-
-        $gruppenName = $xml->createElement("GruppenName", $XmlData["GruppenName"]);
-        $gruppe->appendChild($gruppenName);
+        $jf->appendChild($feuerwehr);
 
         $organisationseinheit = $xml->createElement("Organisationseinheit", $XmlData["Organisationseinheit"]);
-        $gruppe->appendChild($organisationseinheit);
+        $jf->appendChild($organisationseinheit);
 
         $timeStampAnmeldung = $xml->createElement("TimeStampAnmeldung", $XmlData["TimeStampAnmeldung"]);
-        $gruppe->appendChild($timeStampAnmeldung);
+        $jf->appendChild($timeStampAnmeldung);
     }
 
-    // Persons-Element erstellen
+
+    // Verantwortlicher-Element erstellen
+    $verantwortlicher = $xml->createElement("Verantwortlicher");
+    $jf->appendChild($verantwortlicher);
+
+    $verantwortlicher->appendChild($xml->createElement("Vorname", input($_POST["Verantwortlicher"]["Vorname"])));
+    $verantwortlicher->appendChild($xml->createElement("Name", input($_POST["Verantwortlicher"]["Name"])));
+    $verantwortlicher->appendChild($xml->createElement("Strasse", input($_POST["Verantwortlicher"]["Strasse"])));
+    $verantwortlicher->appendChild($xml->createElement("PLZ", input($_POST["Verantwortlicher"]["PLZ"])));
+    $verantwortlicher->appendChild($xml->createElement("Ort", input($_POST["Verantwortlicher"]["Ort"])));
+    $verantwortlicher->appendChild($xml->createElement("Funktion", input($_POST["Verantwortlicher"]["Funktion"])));
+    $verantwortlicher->appendChild($xml->createElement("Telefon", input($_POST["Verantwortlicher"]["Telefon"])));
+    $verantwortlicher->appendChild($xml->createElement("Email", input($_POST["Verantwortlicher"]["Email"])));
+
+    // Teilnehmer-Element erstellen
     $persons = $xml->createElement("Persons");
-    $gruppe->appendChild($persons);
+    $jf->appendChild($persons);
 
-
-    // Personen hinzufügen
-    foreach ($_POST["Persons"]["Vorname"] as $index => $vorname) {
-
-        if (isset($_POST["Persons"]["Nachname"][$index])) {
-            $nachname = $_POST["Persons"]["Nachname"][$index];
-        } else {
-            $nachname = '';
-        }
-        if (isset($_POST["Persons"]["Nachname"][$index])) {
-            $geschlecht = $_POST["Persons"]["Geschlecht"][$index];
-        } else {
-            $geschlecht = 'N';
-        }
-
-        //If Replacement ist empty
-        if ($vorname == '' && $nachname == '') {
+    // Teilnehmer hinzufügen
+    $teilnehmer = $_POST["Teilnehmer"];
+    foreach ($teilnehmer["Vorname"] as $index => $vorname) {
+        //If empty
+        if ($teilnehmer["Vorname"][$index] == '' && $teilnehmer["Nachname"][$index] == '') {
             continue;
         }
 
         $person = $xml->createElement("Person");
         $persons->appendChild($person);
 
-        $person->appendChild($xml->createElement("Vorname", mb_strimwidth(trim($vorname), 0, 64)));
-
-        $person->appendChild($xml->createElement("Nachname", mb_strimwidth(trim($nachname), 0, 64)));
-
-        $person->appendChild($xml->createElement("Geschlecht", mb_strimwidth(trim($geschlecht), 0, 1)));
+        $person->appendChild($xml->createElement("Vorname", input($teilnehmer["Vorname"][$index])));
+        $person->appendChild($xml->createElement("Name", input($teilnehmer["Name"][$index])));
+        $person->appendChild($xml->createElement("Strasse", input($teilnehmer["Strasse"][$index])));
+        $person->appendChild($xml->createElement("PLZ", input($teilnehmer["PLZ"][$index], 5)));
+        $person->appendChild($xml->createElement("Ort", input($teilnehmer["Ort"][$index])));
 
         $date = false;
-        if (isset($_POST["Persons"]["Geburtsdatum"][$index])) {
+        if (isset($teilnehmer["Geburtsdatum"][$index])) {
             // Geburtsdatum in das Format YYYY-MM-DD konvertieren
-            $date = DateTime::createFromFormat("d.m.Y  H:i:s", $_POST["Persons"]["Geburtsdatum"][$index] . ' 00:00:00');
-        }
-        if (!$date || $allowDate < $date
-            || ($eventDate->format('Y') - $date->format('Y')) < 10 || ($eventDate->format('Y') - $date->format('Y')) > 18) {
-            $date = new DateTime("0001-01-01 00:00:00"); //C# min value
-            setcookie("invalid", true);
+            $date = DateTime::createFromFormat("Y-m-d  H:i:s", input($teilnehmer["Geburtsdatum"][$index], 10) . ' 00:00:00');
         }
         $geburtsdatum = $xml->createElement("Geburtsdatum", $date->format("Y-m-d\TH:i:s"));
         $person->appendChild($geburtsdatum);
+
+        $person->appendChild($xml->createElement("Geschlecht", input($teilnehmer["Geschlecht"][$index], 1)));
+        $person->appendChild($xml->createElement("Status", input($teilnehmer["Status"][$index])));
+
+        $essgewohnheiten = input($teilnehmer["Essgewohnheiten"][$index]);
+        if(input($teilnehmer["Essgewohnheiten"][$index]) == "Sonstiges"){
+            $essgewohnheiten = 'Sonstiges:'.input($teilnehmer["EssgewohnheitenSonstiges"][$index]);
+        }
+        $person->appendChild($xml->createElement("Essgewohnheiten", $essgewohnheiten));
+
+        $unvertraeglichkeiten = implode(',', $teilnehmer["Unvertraeglichkeiten"][$index]);
+        if(str_contains($unvertraeglichkeiten, 'Sonstiges')){
+            $unvertraeglichkeiten = str_replace('Sonstiges', 'Sonstiges:'.input($teilnehmer["UnvertraeglichkeitenSonstiges"][$index]), $unvertraeglichkeiten);
+        }
+        $person->appendChild($xml->createElement("Unvertraeglichkeiten", $unvertraeglichkeiten));
+
     }
 
     // XML speichern
@@ -149,21 +226,20 @@ if (isset($_POST['Gruppe']['Feuerwehr']) && isset($_POST['Gruppe']['GruppenName'
     $url = $config['url'] . '?anmeldung=' . $datafile;
 
     $urlderAnmeldung = $xml->createElement("UrlderAnmeldung", $url);
-    $gruppe->appendChild($urlderAnmeldung);
+    $jf->appendChild($urlderAnmeldung);
 
     $timeStampAenderung = $xml->createElement("TimeStampAenderung", (new DateTime())->format("Y-m-d\TH:i:s"));
-    $gruppe->appendChild($timeStampAenderung);
+    $jf->appendChild($timeStampAenderung);
 
     $xml->formatOutput = true;
     $xml->save('./xml/' . $datafile . '.xml');
 
-    if (isset($_POST['Email']) && $_POST['Email'] != '') {
+    if (isset($_POST["Verantwortlicher"]["Email"]) && $_POST["Verantwortlicher"]["Email"] != '') {
         $message = str_replace('{URL}', $url, $config['mailmessage']);
         $header = 'From: ' . $config['mailabsender'] . "\r\n" . 'Content-Type: text/plain; charset=utf-8' . "\r\n" .
             'X-Mailer: PHP/' . phpversion();
-        mail(trim($_POST['Email']), 'Anmeldung zum ' . $config['description'], $message, $header);
+        mail(trim($_POST["Verantwortlicher"]["Email"]), 'Anmeldung zum ' . $config['description'], $message, $header);
     }
-
 
     header('Location: ./?anmeldung=' . $datafile);
     setcookie("saved", true);
@@ -179,9 +255,6 @@ if (isset($_COOKIE['invalid']) && $_COOKIE['invalid']) {
     $invalid = true;
     setcookie("invalid", false, time() - 1000);
 }
-
-//Javascript Hash created with: curl https://DOMAIN/js/KJFCux.js | openssl dgst -sha384 -binary | openssl base64 -A
-
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -189,10 +262,8 @@ if (isset($_COOKIE['invalid']) && $_COOKIE['invalid']) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $config['title']; ?></title>
-    <link rel="stylesheet" href="./css/bootstrap.min.css"
-          integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3">
-    <link rel="stylesheet" href="./css/KJFCux.css"
-          integrity="sha384-O+mnne/csN6seug8TlJ6t1LftNZ+QCWqXGLN0VdX4dP5JRvlVj35NVpvE0jhjoMn">
+    <link rel="stylesheet" href="./css/bootstrap.min.css">
+    <link rel="stylesheet" href="./css/KJFCux.css">
 </head>
 <body>
 <div class="container">
@@ -231,32 +302,58 @@ if (isset($_COOKIE['invalid']) && $_COOKIE['invalid']) {
         <div class="row mb-4">
             <div class="col-sm-3">
                 <label for="Feuerwehr">Jugendfeuerwehr:</label>
-                <input type="text" class="form-control" name="Gruppe[Feuerwehr]" id="Feuerwehr"
+                <input type="text" class="form-control" name="Feuerwehr" id="Feuerwehr"
                        placeholder="Musterdorf"
-                       value="<?php echo_if_isset($XmlData['Feuerwehr']); ?>"
-                       required <?php echo_if_isset($XmlData['Feuerwehr'], 'readonly'); ?>>
-            </div>
-            <div class="col-sm-3">
-                <label for="GruppenName">Gruppenname:</label>
-                <input type="text" class="form-control" name="Gruppe[GruppenName]" id="GruppenName"
-                       placeholder="Musterdorf Blau"
-                       value="<?php echo_if_isset($XmlData['GruppenName']); ?>"
-                       required <?php echo_if_isset($XmlData['Feuerwehr'], 'readonly'); ?>>
+                       value="<?php echo_if_isset($XmlData, 'Feuerwehr'); ?>"
+                       required <?php echo_if_isset($XmlData, 'Feuerwehr', 'readonly'); ?>>
             </div>
             <div class="col-sm-3">
                 <label for="Organisationseinheit"><?php echo $config['organizationalunit']; ?></label>
-                <select class="form-control" name="Gruppe[Organisationseinheit]" id="Organisationseinheit"
-                        required <?php echo_if_isset($XmlData['Feuerwehr'], 'disabled'); ?>>
+                <select class="form-control" id="Organisationseinheit"
+                        required <?php echo_if_isset($XmlData, 'Organisationseinheit', 'disabled'); ?>>
+                    <option value="">Bitte wählen</option>
                     <?php foreach ($config['organizationalunits'] as $unit): ?>
-                        <option value="<?php echo $unit; ?>" <?php echo (isset($XmlData['Organisationseinheit']) && $unit === $XmlData['Organisationseinheit']) ? 'selected' : ''; ?>><?php echo $unit; ?></option>
+                        <option value="<?php echo $unit; ?>"><?php echo $unit; ?></option>
                     <?php endforeach; ?>
+                    <option value="extern" <?php echo_if_isset($XmlData, 'Organisationseinheit', 'selected'); ?>>Extern</option>
                 </select>
             </div>
             <div class="col-sm-3">
-                <label for="Email">E-Mail (optional):</label>
-                <input type="text" class="form-control" name="Email" id="Email" placeholder="Email@anbieter.de"
-                       data-bs-toggle="tooltip" data-bs-placement="right"
-                       title="Wir senden dir einmalig einen Link zu dieser Anmeldung, damit du sie später ändern kannst. Deine E-Mail Adresse wird nicht gespeichert.">
+                <label for="OrganisationseinheitSonstige"></label>
+                <input type="text" class="form-control" name="Organisationseinheit"
+                       id="OrganisationseinheitSonstige" style="display: none;" required
+                       placeholder="<?php echo $config['organizationalunit']; ?>"
+                       value="<?php echo_if_isset($XmlData, 'Organisationseinheit'); ?>"
+                    <?php echo_if_isset($XmlData, 'Organisationseinheit', 'readonly'); ?>>
+            </div>
+        </div>
+        <div class="row mb-4">
+            <div class="col-sm-4">
+                <label for="VerantwortlicherName">Verantwortliche Person:</label>
+                <input type="text" class="form-control mb-2" name="Verantwortlicher[Vorname]" id="VerantwortlicherName"
+                       placeholder="Vorname" required value="<?php echo_if_isset($XmlData["Verantwortlicher"], 'Vorname'); ?>">
+                <input type="text" class="form-control" name="Verantwortlicher[Name]" id="VerantwortlicherName"
+                       placeholder="Nachname" required value="<?php echo_if_isset($XmlData["Verantwortlicher"], 'Name'); ?>">
+            </div>
+            <div class="col-sm-4">
+                <div>
+                    <label for="Adresse">Adresse:</label>
+                    <input type="text" class="form-control mb-2" name="Verantwortlicher[Strasse]"
+                           placeholder="Straße/Hausnummer" required id="Adresse" value="<?php echo_if_isset($XmlData["Verantwortlicher"], 'Strasse'); ?>">
+                    <input type="text" class="form-control mb-2" name="Verantwortlicher[PLZ]" placeholder="PLZ" required
+                           id="Adresse" value="<?php echo_if_isset($XmlData["Verantwortlicher"], 'PLZ'); ?>">
+                    <input type="text" class="form-control" name="Verantwortlicher[Ort]" placeholder="Ort" required
+                           id="Adresse" value="<?php echo_if_isset($XmlData["Verantwortlicher"], 'Ort'); ?>">
+                </div>
+            </div>
+            <div class="col-sm-3">
+                <label for="Funktion">Funktion:</label>
+                <input type="text" class="form-control mb-2" name="Verantwortlicher[Funktion]" id="Funktion"
+                       placeholder="z. B. Jugendwart" required value="<?php echo_if_isset($XmlData["Verantwortlicher"], 'Funktion'); ?>">
+                <input type="text" class="form-control mb-2" name="Verantwortlicher[Telefon]" id="Telefon"
+                       placeholder="Telefonnummer" required value="<?php echo_if_isset($XmlData["Verantwortlicher"], 'Telefon'); ?>">
+                <input type="email" class="form-control" name="Verantwortlicher[Email]" id="Email"
+                       placeholder="E-Mail Adresse" required value="<?php echo_if_isset($XmlData["Verantwortlicher"], 'Email'); ?>">
             </div>
         </div>
         <div class="row mb-4">
@@ -266,97 +363,120 @@ if (isset($_COOKIE['invalid']) && $_COOKIE['invalid']) {
         </div>
         <div class="row mb-4">
             <div class="col-sm-12">
-                <h4>Meldebogen</h4>
+                <h4>Teilnahmeliste</h4>
             </div>
         </div>
-        <div class="row">
+        <div class="row mb-4">
             <div class="col-sm-12">
-                <p id="age-validation-message" class="text-danger"></p>
-                <div class="table-responsive">
+                <div id="teilnehmer-container" class="table-responsive">
                     <table class="table">
                         <thead>
                         <tr>
-                            <th>Nr.</th>
-                            <th>Vorname</th>
-                            <th>Nachname</th>
-                            <th>Geschlecht</th>
-                            <th>Geburtsdatum</th>
-                            <th>Alter</th>
+                            <th>Persönliche Daten</th>
+                            <th>Adresse</th>
+                            <th>Alter/Geschlecht</th>
+                            <th>Status</th>
+                            <th>Essgewohnheiten</th>
+                            <th>Unverträglichkeiten</th>
                         </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="teilnehmer-list">
                         <?php
-                        $person = $XmlData['Persons'][0]['Person'];
-                        for ($i = 0; $i <= 9; $i++) {
-                            $person = $XmlData['Persons']['Person'][$i];
-
-                            $start = ($i + 1) . '.';
-                            $ageClass = 'age average';
-                            $required = 'required ';
-
-                            if ($i == 9) {
-                                $start = 'Ersatz';
-                                $ageClass = 'age';
-                                $required = '';
-                            }
-                            ?>
-                            <tr>
-                                <td><?php echo $start; ?></td>
-                                <td>
-                                    <input name="Persons[Vorname][]" type="text" class="form-control"
-                                           placeholder="Vorname"
-                                        <?php echo $required; ?> value="<?php echo_if_isset($person['Vorname']); ?>">
-                                </td>
-                                <td>
-                                    <input name="Persons[Nachname][]" type="text" class="form-control"
-                                           placeholder="Nachname" <?php echo $required; ?>
-                                           value="<?php echo_if_isset($person['Nachname']); ?>">
-                                </td>
-                                <td>
-                                    <select name="Persons[Geschlecht][]" class="form-control">
-                                        <option value="D" <?php echo isset($person['Geschlecht']) && $person['Geschlecht'] == 'D' ? 'selected' : '' ?>>
-                                            D
-                                        </option>
-                                        <option value="M" <?php echo isset($person['Geschlecht']) && $person['Geschlecht'] == 'M' ? 'selected' : '' ?>>
-                                            M
-                                        </option>
-                                        <option value="W" <?php echo isset($person['Geschlecht']) && $person['Geschlecht'] == 'W' ? 'selected' : '' ?>>
-                                            W
-                                        </option>
+                        foreach ($XmlData["Persons"]["Person"] as $item) {
+                        ?>
+                        <tr>
+                            <td>
+                                <div>
+                                    <input type="text" class="form-control" name="Teilnehmer[Vorname][]" placeholder="Vorname" required value="<?php echo_if_isset($item, 'Vorname'); ?>">
+                                    <input type="text" class="form-control mb-2" name="Teilnehmer[Name][]" placeholder="Nachname" required value="<?php echo_if_isset($item, 'Name'); ?>">
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    <input type="text" class="form-control mb-2" name="Teilnehmer[Strasse][]" placeholder="Straße/Hausnummer" required value="<?php echo_if_isset($item, 'Strasse'); ?>">
+                                    <input type="text" class="form-control" name="Teilnehmer[PLZ][]" placeholder="PLZ" required value="<?php echo_if_isset($item, 'PLZ'); ?>">
+                                    <input type="text" class="form-control" name="Teilnehmer[Ort][]" placeholder="Ort" required value="<?php echo_if_isset($item, 'Ort'); ?>">
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    <input type="date" class="form-control mb-2" name="Teilnehmer[Geburtsdatum][]" required value="<?php echo if_isset_dt($item, 'Geburtsdatum'); ?>">
+                                    <select name="Teilnehmer[Geschlecht][]" class="form-control" required>
+                                        <option value="">Bitte wählen</option>
+                                        <option <?php echo_if_check($item, 'Geschlecht', 'D', 'selected'); ?> value="D">D</option>
+                                        <option <?php echo_if_check($item, 'Geschlecht', 'M', 'selected'); ?> value="M">M</option>
+                                        <option <?php echo_if_check($item, 'Geschlecht', 'W', 'selected'); ?> value="W">W</option>
                                     </select>
-                                </td>
-                                <td>
-                                    <input name="Persons[Geburtsdatum][]" type="text"
-                                           class="form-control Geburtsdatum<?php echo (if_isset_dt($person['Geburtsdatum']) == '01.01.0001') ? ' error' : ''; ?>"
-                                           placeholder="TT.MM.JJJJ" <?php echo $required; ?>
-                                           value="<?php echo if_isset_dt($person['Geburtsdatum']); ?>">
-                                </td>
-                                <td class="<?php echo $ageClass; ?>"></td>
-                            </tr>
-                            <?php
+                                </div>
+                            </td>
+                            <td>
+                                <select name="Teilnehmer[Status][]" class="form-control mb-2" required>
+                                    <option <?php echo_if_check($item, 'Status', '1Geschwister', 'selected'); ?> value="1Geschwister">1. Geschwisterkind</option>
+                                    <option <?php echo_if_check($item, 'Status', '2Geschwister', 'selected'); ?> value="2Geschwister">2. Geschwisterkind</option>
+                                    <option <?php echo_if_check($item, 'Status', 'WeitereGeschwister', 'selected'); ?> value="WeitereGeschwister">Weitere Geschwisterkinder</option>
+                                    <option <?php echo_if_check($item, 'Status', 'Betreuer', 'selected'); ?> value="Betreuer">Betreuer</option>
+                                    <option <?php echo_if_check($item, 'Status', 'Mitarbeiter', 'selected'); ?> value="Mitarbeiter">Mitarbeiter</option>
+                                </select>
+                            </td>
+                            <td>
+                                <div>
+                                    <select name="Teilnehmer[Essgewohnheiten][]" class="form-control mb-2">
+                                        <option <?php echo_if_contains($item, 'Essgewohnheiten', 'Alles', 'selected'); ?> value="Alles">Alles</option>
+                                        <option <?php echo_if_contains($item, 'Essgewohnheiten', 'Vegetarisch', 'selected'); ?> value="Vegetarisch">Vegetarisch</option>
+                                        <option <?php echo_if_contains($item, 'Essgewohnheiten', 'Vegan', 'selected'); ?> value="Vegan">Vegan</option>
+                                        <option <?php echo_if_contains($item, 'Essgewohnheiten', 'Sonstiges', 'selected'); ?> value="Sonstiges">Sonstiges</option>
+                                    </select>
+                                    <input type="text" class="form-control" name="Teilnehmer[EssgewohnheitenSonstiges][]" placeholder="Sonstige Essgewohnheiten" value="<?php echo_sonstiges($item, 'Essgewohnheiten'); ?>">
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    <select name="Teilnehmer[Unvertraeglichkeiten][0][]" class="form-control mb-2" multiple>
+                                        <option <?php echo_if_contains($item, 'Unvertraeglichkeiten', 'keine', 'selected'); ?> value="keine">Keine</option>
+                                        <option <?php echo_if_contains($item, 'Unvertraeglichkeiten', 'Erdnuesse', 'selected'); ?> value="Erdnuesse">Erdnüsse</option>
+                                        <option <?php echo_if_contains($item, 'Unvertraeglichkeiten', 'Gluten', 'selected'); ?> value="Gluten">Gluten</option>
+                                        <option <?php echo_if_contains($item, 'Unvertraeglichkeiten', 'Laktose', 'selected'); ?> value="Laktose">Laktose</option>
+                                        <option <?php echo_if_contains($item, 'Unvertraeglichkeiten', 'Schalenfruechte', 'selected'); ?> value="Schalenfruechte">Schalenfrüchte</option>
+                                        <option <?php echo_if_contains($item, 'Unvertraeglichkeiten', 'Schalentiere', 'selected'); ?> value="Schalentiere">Schalentiere</option>
+                                        <option <?php echo_if_contains($item, 'Unvertraeglichkeiten', 'Sellerie', 'selected'); ?> value="Sellerie">Sellerie</option>
+                                        <option <?php echo_if_contains($item, 'Unvertraeglichkeiten', 'Senf', 'selected'); ?> value="Senf">Senf</option>
+                                        <option <?php echo_if_contains($item, 'Unvertraeglichkeiten', 'Sesam', 'selected'); ?> value="Sesam">Sesam</option>
+                                        <option <?php echo_if_contains($item, 'Unvertraeglichkeiten', 'Soja', 'selected'); ?> value="Soja">Soja</option>
+                                        <option <?php echo_if_contains($item, 'Unvertraeglichkeiten', 'Sulfite', 'selected'); ?> value="Sulfite">Sulfite</option>
+                                        <option <?php echo_if_contains($item, 'Unvertraeglichkeiten', 'Sonstiges', 'selected'); ?> value="Sonstiges">Sonstiges</option>
+                                    </select>
+                                    <input type="text" class="form-control" name="Teilnehmer[UnvertraeglichkeitenSonstiges][]" placeholder="Sonstige Unverträglichkeiten" value="<?php echo_sonstiges($item, 'Unvertraeglichkeiten'); ?>">
+                                </div>
+                            </td>
+                        </tr>
+                        <?php
                         }
                         ?>
+
                         </tbody>
                     </table>
+                    <button type="button" class="btn btn-secondary" id="add-teilnehmer">Teilnehmer hinzufügen</button>
                 </div>
             </div>
         </div>
-        <div class="row">
-            <div class="col-sm">
-                <p>Gesamtalter: <span id="total-age">0</span> : 9 = <span id="average">0</span></p>
-                <p>Die Berechnung der Alter erfolgt anhand des Geburtsjahrgangs.</p>
+        <div class="row mb-4">
+            <div class="col-sm-12">
+                <h5>Kosten</h5>
+                <p>Pro Person: <span id="cost-pp"><?php echo $config['cost_pp'];?></span>€</p>
+                <p>Gesamtbetrag: <span id="total-cost">0</span>€</p>
+                <p>Bankverbindung: Musterbank, IBAN: DE12345678901234567890</p>
+                <p>Verwendungszweck: JF Muster, <span id="participant-count">X</span> TN</p>
             </div>
+        </div>
+
+        <div class="row">
             <div class="col-sm text-center">
                 <button class="btn btn-primary" type="submit">Anmeldung übermitteln</button>
             </div>
         </div>
-    </form>
-    <span id="eventdate" hidden><?php echo $config['eventdate']; ?></span>
 </div>
-<script src="./js/bootstrap.bundle.min.js"
-        integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p"></script>
-<script src="./js/KJFCux.js"
-        integrity="sha384-QbaHC+Eb61iElgkVWOguJB/AYCo+3+V9lIYoKmNiXWJti84T4XMJ30tBgNRlDeGs"></script>
+<script src="./js/bootstrap.bundle.min.js"></script>
+<script src="./js/KJFCux.js"></script>
 </body>
 </html>
 

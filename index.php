@@ -382,7 +382,7 @@ if (isset($_COOKIE['invalid']) && $_COOKIE['invalid']) {
                         </thead>
                         <tbody id="teilnehmer-list">
                         <?php
-                        foreach ($XmlData["Persons"]["Person"] as $item) {
+                        foreach ($XmlData["Persons"] as $item) {
                         ?>
                         <tr>
                             <td>
@@ -426,7 +426,7 @@ if (isset($_COOKIE['invalid']) && $_COOKIE['invalid']) {
                                         <option <?php echo_if_contains($item, 'Essgewohnheiten', 'Vegan', 'selected'); ?> value="Vegan">Vegan</option>
                                         <option <?php echo_if_contains($item, 'Essgewohnheiten', 'Sonstiges', 'selected'); ?> value="Sonstiges">Sonstiges</option>
                                     </select>
-                                    <input type="text" class="form-control" name="Teilnehmer[EssgewohnheitenSonstiges][]" placeholder="Sonstige Essgewohnheiten" value="<?php echo_sonstiges($item, 'Essgewohnheiten'); ?>">
+                                    <input type="text" class="form-control" name="Teilnehmer[EssgewohnheitenSonstiges][]" placeholder="Sonstige Essgewohnheiten" value="<?php echo_sonstiges($item, 'Essgewohnheiten'); ?>" style="display: none;">
                                 </div>
                             </td>
                             <td>
@@ -445,7 +445,7 @@ if (isset($_COOKIE['invalid']) && $_COOKIE['invalid']) {
                                         <option <?php echo_if_contains($item, 'Unvertraeglichkeiten', 'Sulfite', 'selected'); ?> value="Sulfite">Sulfite</option>
                                         <option <?php echo_if_contains($item, 'Unvertraeglichkeiten', 'Sonstiges', 'selected'); ?> value="Sonstiges">Sonstiges</option>
                                     </select>
-                                    <input type="text" class="form-control" name="Teilnehmer[UnvertraeglichkeitenSonstiges][]" placeholder="Sonstige Unverträglichkeiten" value="<?php echo_sonstiges($item, 'Unvertraeglichkeiten'); ?>">
+                                    <input type="text" class="form-control" name="Teilnehmer[UnvertraeglichkeitenSonstiges][]" placeholder="Sonstige Unverträglichkeiten" value="<?php echo_sonstiges($item, 'Unvertraeglichkeiten'); ?>" style="display: none;">
                                 </div>
                             </td>
                         </tr>
@@ -456,6 +456,7 @@ if (isset($_COOKIE['invalid']) && $_COOKIE['invalid']) {
                         </tbody>
                     </table>
                     <button type="button" class="btn btn-secondary" id="add-teilnehmer">Teilnehmer hinzufügen</button>
+                    <button type="button" class="btn btn-danger" id="delete-last-teilnehmer">Teilnehmer löschen</button>
                 </div>
             </div>
         </div>
@@ -464,8 +465,9 @@ if (isset($_COOKIE['invalid']) && $_COOKIE['invalid']) {
                 <h5>Kosten</h5>
                 <p>Pro Person: <span id="cost-pp"><?php echo $config['cost_pp'];?></span>€</p>
                 <p>Gesamtbetrag: <span id="total-cost">0</span>€</p>
-                <p>Bankverbindung: Musterbank, IBAN: DE12345678901234567890</p>
-                <p>Verwendungszweck: JF Muster, <span id="participant-count">X</span> TN</p>
+                <p><strong>Bankverbindung</strong><br>
+<?php echo $config['bankdetails']; ?>
+                Verwendungszweck: <span id="jf-name"><?php echo_if_isset($XmlData, 'Feuerwehr'); ?></span>, <span id="participant-count">X</span> TN</p>
             </div>
         </div>
 

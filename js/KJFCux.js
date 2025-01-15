@@ -49,7 +49,7 @@ document.getElementById('add-teilnehmer').addEventListener('click', function () 
                     <option value="Vegan">Vegan</option>
                     <option value="Sonstiges">Sonstiges</option>
                 </select>
-                <input type="text" class="form-control" name="Teilnehmer[EssgewohnheitenSonstiges][]" placeholder="Sonstige Essgewohnheiten">
+                <input type="text" class="form-control" name="Teilnehmer[EssgewohnheitenSonstiges][]" placeholder="Sonstige Essgewohnheiten" style="display: none;">
             </div>
         </td>
         <td>
@@ -68,7 +68,7 @@ document.getElementById('add-teilnehmer').addEventListener('click', function () 
                     <option value="Sulfite">Sulfite</option>
                     <option value="Sonstiges">Sonstiges</option>
                 </select>
-                <input type="text" class="form-control" name="Teilnehmer[UnvertraeglichkeitenSonstiges][]" placeholder="Sonstige Unverträglichkeiten">
+                <input type="text" class="form-control" name="Teilnehmer[UnvertraeglichkeitenSonstiges][]" placeholder="Sonstige Unverträglichkeiten" style="display: none;">
             </div>
         </td>
     `;
@@ -138,6 +138,12 @@ document.addEventListener('DOMContentLoaded', function () {
     syncFields(teilnehmerFields.plz, verantwortlicherFields.plz);
     syncFields(teilnehmerFields.ort, verantwortlicherFields.ort);
 
+    const input_jfname = document.getElementById("Feuerwehr");
+    const display_jfname = document.getElementById("jf-name");
+    input_jfname.addEventListener('input', function () {
+        display_jfname.textContent = input_jfname.value;
+    });
+
     // Update participant count and total cost
     updateParticipantCountAndCost();
 
@@ -173,7 +179,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Funktion, um das passende Freitextfeld ein- oder auszublenden
     function toggleTextbox(selectElement, textboxName) {
         const row = selectElement.closest('tr');
-        const textbox = row.querySelector(`input[name="Teilnehmer[${textboxName}][]"]`);
+        const textbox = row.querySelector(`input[name^="Teilnehmer[${textboxName}]"]`);
         if (selectElement.value === "Sonstiges" || Array.from(selectElement.selectedOptions).some(option => option.value === "Sonstiges")) {
             textbox.style.display = 'block';
         } else {
@@ -190,8 +196,8 @@ document.addEventListener('DOMContentLoaded', function () {
     // Funktion, um die Logik auch bei neu hinzugefügten Teilnehmern anzuwenden
     document.getElementById('add-teilnehmer').addEventListener('click', function () {
         const lastRow = document.querySelector('#teilnehmer-list tr:last-child');
-        const essgewohnheitenSelect = lastRow.querySelector('select[name="Teilnehmer[Essgewohnheiten][]"]');
-        const unvertraeglichkeitenSelect = lastRow.querySelector('select[name="Teilnehmer[Unvertraeglichkeiten][]"]');
+        const essgewohnheitenSelect = lastRow.querySelector('select[name^="Teilnehmer[Essgewohnheiten]"]');
+        const unvertraeglichkeitenSelect = lastRow.querySelector('select[name^="Teilnehmer[Unvertraeglichkeiten]"]');
 
 
         // Event-Listener für die neuen Dropdowns hinzufügen
@@ -204,5 +210,15 @@ document.addEventListener('DOMContentLoaded', function () {
         unvertraeglichkeitenSelect.addEventListener('change', function () {
             toggleTextbox(this, 'UnvertraeglichkeitenSonstiges');
         });
+    });
+
+    document.getElementById('delete-last-teilnehmer').addEventListener('click', function () {
+        const teilnehmerList = document.getElementById('teilnehmer-list');
+        const rows = teilnehmerList.getElementsByTagName('tr');
+        if (rows.length > 1) {
+            teilnehmerList.removeChild(rows[rows.length - 1]);
+        } else {
+            alert('Der erste Teilnehmer kann nicht gelöscht werden.');
+        }
     });
 });

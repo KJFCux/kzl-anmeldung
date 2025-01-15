@@ -10,3 +10,6 @@ $config['cost_pp'] = '50';
 $config['mailabsender'] = 'mail@example.net';
 $config['url'] = 'https://example.net/anmeldung/';
 $config['mailmessage'] = "Hallo, du kannst deine Anmeldung unter dieser URL einsehen: \r\n\r\n{URL} \r\n\r\nViele Grüße";
+$config['bankdetails'] = "                Kontoinhaber: ABCD e.V.<br>
+                IBAN: ABCD<br>
+                BIC: ABCD<br>";

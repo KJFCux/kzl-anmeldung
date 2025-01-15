@@ -110,18 +110,20 @@ if (isset($_GET['anmeldung']) && ctype_alnum($_GET['anmeldung']) && file_exists(
         ],
         "Persons" => [
             "Person" => [
-                "Vorname" => null,
-                "Name" => null,
-                "Strasse" => null,
-                "PLZ" => null,
-                "Ort" => null,
-                "Geburtsdatum" => null,
-                "Geschlecht" => null,
-                "Status" => "Betreuer",
-                "Essgewohnheiten" => null,
-                "EssgewohnheitenSonstiges" => null,
-                "Unvertraeglichkeiten" => "keine",
-                "UnvertraeglichkeitenSonstiges" => null
+                [
+                    "Vorname" => null,
+                    "Name" => null,
+                    "Strasse" => null,
+                    "PLZ" => null,
+                    "Ort" => null,
+                    "Geburtsdatum" => null,
+                    "Geschlecht" => null,
+                    "Status" => "Betreuer",
+                    "Essgewohnheiten" => null,
+                    "EssgewohnheitenSonstiges" => null,
+                    "Unvertraeglichkeiten" => "keine",
+                    "UnvertraeglichkeitenSonstiges" => null
+                ]
             ],
         ],
     ];
@@ -382,7 +384,7 @@ if (isset($_COOKIE['invalid']) && $_COOKIE['invalid']) {
                         </thead>
                         <tbody id="teilnehmer-list">
                         <?php
-                        foreach ($XmlData["Persons"] as $item) {
+                        foreach ($XmlData["Persons"]["Person"] as $item) {
                         ?>
                         <tr>
                             <td>

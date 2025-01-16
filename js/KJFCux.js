@@ -220,5 +220,7 @@ document.addEventListener('DOMContentLoaded', function () {
         } else {
             alert('Der erste Teilnehmer kann nicht gelöscht werden.');
         }
+        // Update participant count and total cost
+        updateParticipantCountAndCost();
     });
 });

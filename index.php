@@ -240,7 +240,7 @@ if (isset($_POST['Feuerwehr']) && isset($_POST['Organisationseinheit']) && isset
         $message = str_replace('{URL}', $url, $config['mailmessage']);
         $header = 'From: ' . $config['mailabsender'] . "\r\n" . 'Content-Type: text/plain; charset=utf-8' . "\r\n" .
             'X-Mailer: PHP/' . phpversion();
-        mail(trim($_POST["Verantwortlicher"]["Email"]), 'Anmeldung zum ' . $config['description'], $message, $header);
+        mail(trim($_POST["Verantwortlicher"]["Email"]), 'Anmeldung zum ' . $config['headline'], $message, $header);
     }
 
     header('Location: ./?anmeldung=' . $datafile);
@@ -413,9 +413,9 @@ if (isset($_COOKIE['invalid']) && $_COOKIE['invalid']) {
                             </td>
                             <td>
                                 <select name="Teilnehmer[Status][]" class="form-control mb-2" required>
-                                    <option <?php echo_if_check($item, 'Status', '1Geschwister', 'selected'); ?> value="1Geschwister">1. Geschwisterkind</option>
+                                    <option <?php echo_if_check($item, 'Status', '1Geschwister', 'selected'); ?> value="1Geschwister">Teilnehmender</option>
                                     <option <?php echo_if_check($item, 'Status', '2Geschwister', 'selected'); ?> value="2Geschwister">2. Geschwisterkind</option>
-                                    <option <?php echo_if_check($item, 'Status', 'WeitereGeschwister', 'selected'); ?> value="WeitereGeschwister">Weitere Geschwisterkinder</option>
+                                    <option <?php echo_if_check($item, 'Status', 'WeitereGeschwister', 'selected'); ?> value="WeitereGeschwister">Weiteres Geschwisterkind</option>
                                     <option <?php echo_if_check($item, 'Status', 'Betreuer', 'selected'); ?> value="Betreuer">Betreuer</option>
                                     <option <?php echo_if_check($item, 'Status', 'Mitarbeiter', 'selected'); ?> value="Mitarbeiter">Mitarbeiter</option>
                                 </select>

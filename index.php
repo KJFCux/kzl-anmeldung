@@ -87,12 +87,12 @@ function input($string, $len = 64): string
 $XmlData = [];
 $datafile = null;
 $old_xml = null;
-if (isset($_GET['anmeldung']) && ctype_alnum($_GET['anmeldung']) && file_exists('./xml/' . $_GET['anmeldung'] . '.xml')) {
+if (isset($_GET['anmeldung']) && preg_match('/^[a-zA-Z0-9_]+$/', $_GET['anmeldung']) && file_exists('./xml/' . $_GET['anmeldung'] . '.xml')) {
     $old_xml = simplexml_load_file('./xml/' . $_GET['anmeldung'] . '.xml');
     if ($old_xml) {
         //Convert SimpleXml Object to associative Array
         $XmlData = json_decode(str_replace(':{}',':""',json_encode($old_xml)), TRUE);
-        $datafile = $_GET['anmeldung'];
+        $datafile = explode('_', $_GET['anmeldung'])[0];
     }
 }else{
     $XmlData = [
@@ -226,6 +226,8 @@ if (isset($_POST['Feuerwehr']) && isset($_POST['Organisationseinheit']) && isset
         $datafile = generateRandomString(48);
     }
     $url = $config['url'] . '?anmeldung=' . $datafile;
+    $datafiledate = $datafile . '_' . time();
+    $urlintern = $config['url'] . '?anmeldung=' . $datafiledate;
 
     $urlderAnmeldung = $xml->createElement("UrlderAnmeldung", $url);
     $jf->appendChild($urlderAnmeldung);
@@ -235,12 +237,15 @@ if (isset($_POST['Feuerwehr']) && isset($_POST['Organisationseinheit']) && isset
 
     $xml->formatOutput = true;
     $xml->save('./xml/' . $datafile . '.xml');
+    $xml->save('./xml/' . $datafiledate . '.xml');
 
     if (isset($_POST["Verantwortlicher"]["Email"]) && $_POST["Verantwortlicher"]["Email"] != '') {
         $message = str_replace('{URL}', $url, $config['mailmessage']);
+        $messageintern = str_replace('{URLINT}', $urlintern, str_replace('{URL}', $url, $config['mailmessageintern']));
         $header = 'From: ' . $config['mailabsender'] . "\r\n" . 'Content-Type: text/plain; charset=utf-8' . "\r\n" .
             'X-Mailer: PHP/' . phpversion();
         mail(trim($_POST["Verantwortlicher"]["Email"]), 'Anmeldung zum ' . $config['headline'], $message, $header);
+        mail($config['mailintern'], 'Anmeldung von ' . input($_POST["Feuerwehr"]) . ', Teilnehmende: '.count($persons->childNodes), $messageintern, $header);
     }
 
     header('Location: ./?anmeldung=' . $datafile);

@@ -477,7 +477,16 @@ if (isset($_COOKIE['invalid']) && $_COOKIE['invalid']) {
                 Verwendungszweck: <span id="jf-name"><?php echo_if_isset($XmlData, 'Feuerwehr'); ?></span>, <span id="participant-count">X</span> TN</p>
             </div>
         </div>
-
+        <div class="row mb-4">
+            <div class="col-sm-12">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="dsgvoConsent" name="dsgvoConsent" required>
+                    <label class="form-check-label" for="dsgvoConsent">
+                        Ich willige ein, dass die zur Durchführung des Zeltlagers relaventen Daten gespeichert werden.
+                    </label>
+                </div>
+            </div>
+        </div>
         <div class="row">
             <div class="col-sm text-center">
                 <button class="btn btn-primary" type="submit">Anmeldung übermitteln</button>

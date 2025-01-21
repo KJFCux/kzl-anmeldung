@@ -36,7 +36,7 @@ document.getElementById('add-teilnehmer').addEventListener('click', function () 
             <select name="Teilnehmer[Status][]" class="form-control mb-2" required>
                 <option value="1Geschwister">Teilnehmender</option>
                 <option value="2Geschwister">2. Geschwisterkind</option>
-                <option value="WeitereGeschwister">Weitere Geschwisterkinder</option>
+                <option value="WeitereGeschwister">Weiteres Geschwisterkind</option>
                 <option value="Betreuer">Betreuer</option>
                 <option value="Mitarbeiter">Mitarbeiter</option>
             </select>

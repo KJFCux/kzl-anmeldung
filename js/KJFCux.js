@@ -91,13 +91,53 @@ function addEventListenersToRow(row, index) {
         const originalName = input.getAttribute('name');
         input.setAttribute('name', originalName.replace(/\[\d+\]/, `[${index}]`));
     });
+
+    // Add event listener to the "Status" dropdown
+    const statusDropdown = row.querySelector('select[name="Teilnehmer[Status][]"]');
+    statusDropdown.addEventListener('change', updateParticipantCountAndCost);
 }
 
 function updateParticipantCountAndCost() {
-    const rows = document.querySelectorAll('#teilnehmer-list tr').length;
+    const rows = document.querySelectorAll('#teilnehmer-list tr');
     const costPerPerson = parseInt(document.getElementById('cost-pp').textContent);
-    document.getElementById('participant-count').textContent = rows;
-    document.getElementById('total-cost').textContent = rows * costPerPerson;
+    let totalCost = 0;
+    let countTeilnehmender = 0;
+    let count2Geschwister = 0;
+
+    rows.forEach((row, index) => {
+        const status = row.querySelector('select[name="Teilnehmer[Status][]"]').value;
+        let participantCost = costPerPerson;
+
+        if (status === '1Geschwister') {
+            countTeilnehmender++;
+        } else if (status === '2Geschwister') {
+            participantCost *= 0.75;
+            count2Geschwister++;
+        } else if (status === 'WeitereGeschwister') {
+            participantCost *= 0.5;
+        }
+
+        totalCost += participantCost;
+    });
+
+    document.getElementById('participant-count').textContent = rows.length;
+    document.getElementById('total-cost').textContent = totalCost.toFixed(2);
+
+    // Validate status dropdowns
+    rows.forEach((row) => {
+        const statusDropdown = row.querySelector('select[name="Teilnehmer[Status][]"]');
+        const status = statusDropdown.value;
+
+        if (status === '2Geschwister' && countTeilnehmender < 1) {
+            statusDropdown.setCustomValidity('Es muss ein Teilnehmer vorhanden sein.');
+        } else if (status === 'WeitereGeschwister' && count2Geschwister < 1) {
+            statusDropdown.setCustomValidity('Es muss ein 2. Geschwisterkind vorhanden sein.');
+        } else {
+            statusDropdown.setCustomValidity('');
+        }
+        statusDropdown.reportValidity();
+    });
+
 }
 
 document.addEventListener('DOMContentLoaded', function () {

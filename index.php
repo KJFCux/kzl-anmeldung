@@ -482,7 +482,7 @@ if (isset($_COOKIE['invalid']) && $_COOKIE['invalid']) {
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="dsgvoConsent" name="dsgvoConsent" required>
                     <label class="form-check-label" for="dsgvoConsent">
-                        Ich willige ein, dass die zur Durchführung des Zeltlagers relaventen Daten gespeichert werden.
+                        Ich willige ein, dass die zur Durchführung des Zeltlagers relevanten Daten gespeichert werden.
                     </label>
                 </div>
             </div>

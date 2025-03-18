@@ -263,4 +263,9 @@ document.addEventListener('DOMContentLoaded', function () {
         // Update participant count and total cost
         updateParticipantCountAndCost();
     });
+
+    const textbox = document.getElementById("OrganisationseinheitSonstige");
+    if (document.getElementById("Organisationseinheit").value === "extern") {
+        textbox.style.display = 'block';
+    }
 });

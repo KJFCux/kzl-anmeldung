@@ -98,6 +98,9 @@ if (isset($_GET['anmeldung']) && preg_match('/^[a-zA-Z0-9_]+$/', $_GET['anmeldun
     $XmlData = [
         "Feuerwehr" => null,
         "Organisationseinheit" => null,
+        "Teilnehmerbeitrag" => null,
+        "Einverstaendniserklaerung" => null,
+        "GezahlterBeitrag" => 0,
         "Verantwortlicher" => [
             "Vorname" => null,
             "Name" => null,
@@ -129,12 +132,21 @@ if (isset($_GET['anmeldung']) && preg_match('/^[a-zA-Z0-9_]+$/', $_GET['anmeldun
     ];
 }
 
+function addAppData($jf, $xml, $XmlData, $key)
+{
+    if(isset($XmlData[$key])){
+        $jf->appendChild($xml->createElement($key, $XmlData[$key]));
+    }
+}
+
 if (isset($_POST['Feuerwehr']) && isset($_POST['Organisationseinheit']) && isset($_POST['Verantwortlicher']) && isset($_POST['Teilnehmer'])) {
     // XML-Daten aufbauen
     $xml = new DOMDocument("1.0", "utf-16");
     // Gruppe-Element erstellen
     $jf = $xml->createElement("Jugendfeuerwehr");
     $xml->appendChild($jf);
+
+    $teilnehmer = $_POST["Teilnehmer"];
 
     if ($old_xml === null) {
         // Neue Daten
@@ -149,6 +161,7 @@ if (isset($_POST['Feuerwehr']) && isset($_POST['Organisationseinheit']) && isset
 
         $timeStampAnmeldung = $xml->createElement("TimeStampAnmeldung", (new DateTime())->format("Y-m-d\TH:i:s"));
         $jf->appendChild($timeStampAnmeldung);
+
     } else {
         //Bei Update Feuerwehr, Organisationseinheit nicht ändern
         $feuerwehr = $xml->createElement("Feuerwehr", $XmlData['Feuerwehr']);
@@ -157,8 +170,13 @@ if (isset($_POST['Feuerwehr']) && isset($_POST['Organisationseinheit']) && isset
         $organisationseinheit = $xml->createElement("Organisationseinheit", $XmlData["Organisationseinheit"]);
         $jf->appendChild($organisationseinheit);
 
-        $timeStampAnmeldung = $xml->createElement("TimeStampAnmeldung", $XmlData["TimeStampAnmeldung"]);
-        $jf->appendChild($timeStampAnmeldung);
+        addAppData($jf, $xml, $XmlData, "GezahlterBeitrag");
+        addAppData($jf, $xml, $XmlData, "TimeStampGezahlterBeitrag");
+        addAppData($jf, $xml, $XmlData, "Einverstaendniserklaerung");
+        addAppData($jf, $xml, $XmlData, "TimeStampEinverstaendniserklaerung");
+        addAppData($jf, $xml, $XmlData, "Teilnehmerbeitrag");
+        addAppData($jf, $xml, $XmlData, "Zeltdorf");
+        addAppData($jf, $xml, $XmlData, "TimeStampZeltdorf");
     }
 
 
@@ -180,7 +198,6 @@ if (isset($_POST['Feuerwehr']) && isset($_POST['Organisationseinheit']) && isset
     $jf->appendChild($persons);
 
     // Teilnehmer hinzufügen
-    $teilnehmer = $_POST["Teilnehmer"];
     foreach ($teilnehmer["Vorname"] as $index => $vorname) {
         //If empty
         if ($teilnehmer["Vorname"][$index] == '' && $teilnehmer["Nachname"][$index] == '') {
@@ -200,6 +217,9 @@ if (isset($_POST['Feuerwehr']) && isset($_POST['Organisationseinheit']) && isset
         if (isset($teilnehmer["Geburtsdatum"][$index])) {
             // Geburtsdatum in das Format YYYY-MM-DD konvertieren
             $date = DateTime::createFromFormat("Y-m-d  H:i:s", input($teilnehmer["Geburtsdatum"][$index], 10) . ' 00:00:00');
+            if($date === false){
+                $date = DateTime::createFromFormat("Y-m-d H:i:s", '1900-01-01 00:00:00');
+            }
         }
         $geburtsdatum = $xml->createElement("Geburtsdatum", $date->format("Y-m-d\TH:i:s"));
         $person->appendChild($geburtsdatum);
@@ -304,6 +324,7 @@ if (isset($_COOKIE['invalid']) && $_COOKIE['invalid']) {
         </div>
         <?php
     }
+    $existOU = false;
     ?>
     <form method="POST" id="form">
         <div class="row mb-4">
@@ -319,10 +340,14 @@ if (isset($_COOKIE['invalid']) && $_COOKIE['invalid']) {
                 <select class="form-control" id="Organisationseinheit"
                         required <?php echo_if_isset($XmlData, 'Organisationseinheit', 'disabled'); ?>>
                     <option value="">Bitte wählen</option>
-                    <?php foreach ($config['organizationalunits'] as $unit): ?>
-                        <option value="<?php echo $unit; ?>"><?php echo $unit; ?></option>
+                    <?php foreach ($config['organizationalunits'] as $unit):
+                        if(isset($XmlData['Organisationseinheit']) && $XmlData['Organisationseinheit'] == $unit){
+                            $existOU = true;
+                        }
+                        ?>
+                        <option value="<?php echo $unit;?>" <?php echo_if_check($XmlData, 'Organisationseinheit', $unit, 'selected');?>><?php echo $unit; ?></option>
                     <?php endforeach; ?>
-                    <option value="extern" <?php echo_if_isset($XmlData, 'Organisationseinheit', 'selected'); ?>>Extern</option>
+                    <option value="extern" <?php if(!$existOU) { echo "selected";} ?>>Extern</option>
                 </select>
             </div>
             <div class="col-sm-3">

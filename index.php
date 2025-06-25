@@ -525,13 +525,13 @@ if (isset($_COOKIE['invalid']) && $_COOKIE['invalid']) {
         </div>
         <?php if($registrationEnabled){ ?>
         <div class="row">
-            <div class="col-sm text-center">
+            <div class="col-sm text-center mb-4">
                 <button class="btn btn-primary" type="submit">Anmeldung übermitteln</button>
             </div>
         </div>
         <?php } else { ?>
         <div class="row">
-            <div class="col-sm text-center">
+            <div class="col-sm text-center mb-4">
                 <button class="btn btn-secondary" type="button" disabled>Anmeldung deaktiviert</button>
             </div>
         </div>

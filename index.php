@@ -83,6 +83,17 @@ function input($string, $len = 64): string
     return mb_strimwidth(trim($string), 0, $len);
 }
 
+$registrationEnabled = true;
+try {
+    $blockRegistrationAt = new DateTimeImmutable($config['block_registration_at']);
+    $registrationEnabled = $blockRegistrationAt > new DateTimeImmutable();
+    // If the registration is blocked and the form is submitted, show an error message
+    if (!$registrationEnabled && !empty($_POST)) {
+        die('Anmeldung ist nicht mehr möglich. Der Anmeldeschluss war am ' . $blockRegistrationAt->format('d.m.Y H:i:s') . '.');
+    }
+} catch (Exception $e) {
+    die('block_registration_at in config.php is not a valid date');
+}
 
 $XmlData = [];
 $datafile = null;
@@ -512,11 +523,19 @@ if (isset($_COOKIE['invalid']) && $_COOKIE['invalid']) {
                 </div>
             </div>
         </div>
+        <?php if($registrationEnabled){ ?>
         <div class="row">
             <div class="col-sm text-center">
                 <button class="btn btn-primary" type="submit">Anmeldung übermitteln</button>
             </div>
         </div>
+        <?php } else { ?>
+        <div class="row">
+            <div class="col-sm text-center">
+                <button class="btn btn-secondary" type="button" disabled>Anmeldung deaktiviert</button>
+            </div>
+        </div>
+        <?php } ?>
 </div>
 <script src="./js/bootstrap.bundle.min.js"></script>
 <script src="./js/KJFCux.js"></script>

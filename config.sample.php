@@ -7,6 +7,7 @@ $config['description'] = 'Kreiszeltlager in Otterndorf ... Beschreibung in Confi
 $config['organizationalunit'] = 'Stadt, - Gemeinde';
 $config['organizationalunits'] = ['Beverstedt', 'Börde Lamstedt', 'Cuxhaven', 'Geestland', 'Land Hadeln', 'Hagen', 'Hemmoor', 'Loxstedt', 'Schiffdorf', 'Wurster Nordseeküste'];
 $config['cost_pp'] = '50';
+$config['block_registration_at'] = '2025-05-17T06:00:00+02:00';
 $config['mailabsender'] = 'mail@example.net';
 $config['mailintern'] = 'mail@example.net';
 $config['url'] = 'https://example.net/anmeldung/';

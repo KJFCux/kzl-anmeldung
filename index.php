@@ -246,6 +246,7 @@ try {
     $registrationEnabled = $blockRegistrationAt > new DateTimeImmutable();
     // If the registration is blocked and the form is submitted, show an error message
     if (!$registrationEnabled && !empty($_POST)) {
+        http_response_code(403);
         die('Anmeldung ist nicht mehr möglich. Der Anmeldeschluss war am ' . $blockRegistrationAt->format('d.m.Y H:i:s') . '.');
     }
 } catch (Exception $e) {
@@ -310,11 +311,6 @@ if (isset($_POST['Feuerwehr'], $_POST['Organisationseinheit'], $_POST['Verantwor
         header('Location: ./');
         exit;
     }
-    if (rateLimitErreicht('./xml/.ratelimit.json', (int)($config['max_submissions_per_hour'] ?? 20))) {
-        http_response_code(429);
-        die('Von deinem Anschluss wurden in der letzten Stunde zu viele Anmeldungen gespeichert. '
-            . 'Bitte versuche es später erneut. Über "Zurück" im Browser gelangst du zu deinen Eingaben.');
-    }
 
     // XML-Daten aufbauen
     $xml = new DOMDocument("1.0", "utf-16");
@@ -326,6 +322,13 @@ if (isset($_POST['Feuerwehr'], $_POST['Organisationseinheit'], $_POST['Verantwor
     $verantwortlicherPost = $_POST["Verantwortlicher"];
 
     if ($old_xml === null) {
+        // Pflichtfelder auch serverseitig prüfen. Die Organisationseinheit ist bewusst
+        // nicht auf die Liste beschränkt, da bei "Extern" ein Freitext erlaubt ist.
+        if (input($_POST["Feuerwehr"]) === '' || input($_POST["Organisationseinheit"]) === '') {
+            http_response_code(400);
+            die('Bitte Jugendfeuerwehr und ' . e($config['organizationalunit']) . ' angeben. Über "Zurück" im Browser gelangst du zu deinen Eingaben.');
+        }
+
         // Neue Daten
         $jf->appendChild(xmlElement($xml, "Feuerwehr", input($_POST["Feuerwehr"])));
         $jf->appendChild(xmlElement($xml, "Organisationseinheit", input($_POST["Organisationseinheit"])));
@@ -423,6 +426,18 @@ if (isset($_POST['Feuerwehr'], $_POST['Organisationseinheit'], $_POST['Verantwor
             $unvertraeglichkeiten = implode(',', $auswahl);
         }
         $person->appendChild(xmlElement($xml, "Unvertraeglichkeiten", $unvertraeglichkeiten));
+    }
+
+    if ($statusListe === []) {
+        http_response_code(400);
+        die('Bitte mindestens eine Person in der Teilnahmeliste eintragen. Über "Zurück" im Browser gelangst du zu deinen Eingaben.');
+    }
+
+    // Nur gültige Speichervorgänge zählen für das Limit
+    if (rateLimitErreicht('./xml/.ratelimit.json', (int)($config['max_submissions_per_hour'] ?? 20))) {
+        http_response_code(429);
+        die('Von deinem Anschluss wurden in der letzten Stunde zu viele Anmeldungen gespeichert. '
+            . 'Bitte versuche es später erneut. Über "Zurück" im Browser gelangst du zu deinen Eingaben.');
     }
 
     // XML speichern

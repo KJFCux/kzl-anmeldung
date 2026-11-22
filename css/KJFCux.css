@@ -1,3 +1,21 @@
 .error {
     border-color: #dc3545 !important;
 }
+/* Honeypot-Feld gegen Spam-Bots: für Menschen unsichtbar */
+.hp-feld {
+    position: absolute;
+    left: -10000px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+}
+
+/* Schreibgeschützte Felder (z. B. Name der Jugendfeuerwehr nach der Anmeldung) als solche erkennbar machen */
+.form-control[readonly] {
+    background-color: var(--bs-secondary-bg);
+}
+
+/* Platz für die längeren Status-Bezeichnungen */
+.teilnehmer-status {
+    min-width: 13rem;
+}

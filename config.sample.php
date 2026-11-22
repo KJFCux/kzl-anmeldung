@@ -1,18 +1,39 @@
 <?php
+// Kopiere diese Datei nach config.php und passe die Werte an.
 $config = [];
+
+// Titel im Browser-Tab
 $config['title'] = 'Kreiszeltlager im Landkreis Cuxhaven';
+// Pfad oder URL zum Logo (bei externer URL muss die Content-Security-Policy in .htaccess angepasst werden)
 $config['logo'] = '/wp-content/uploads/2019/04/kjf_logo_web_transparent_mit_text_FUTURA.png';
+// Überschrift der Seite, wird auch im Betreff der Bestätigungs-E-Mail verwendet
 $config['headline'] = 'Kreiszeltlager 2025';
+// Beschreibungstext oberhalb der Teilnahmeliste (HTML erlaubt)
 $config['description'] = 'Kreiszeltlager in Otterndorf ... Beschreibung in Config';
+
+// Bezeichnung und Auswahlliste der Organisationseinheiten. Zusätzlich gibt es immer die Option "Extern" mit Freitext.
 $config['organizationalunit'] = 'Stadt, - Gemeinde';
 $config['organizationalunits'] = ['Beverstedt', 'Börde Lamstedt', 'Cuxhaven', 'Geestland', 'Land Hadeln', 'Hagen', 'Hemmoor', 'Loxstedt', 'Schiffdorf', 'Wurster Nordseeküste'];
+
+// Teilnahmebeitrag pro Person in Euro (Geschwisterrabatt: 2. Kind 75 %, weitere Kinder 50 %)
 $config['cost_pp'] = '50';
+
+// Anmeldeschluss (ISO 8601). Danach ist die Seite nur noch lesbar, Änderungen werden abgelehnt.
 $config['block_registration_at'] = '2025-05-17T06:00:00+02:00';
+
+// Absenderadresse der E-Mails
 $config['mailabsender'] = 'mail@example.net';
+// Empfänger der internen Benachrichtigung bei jeder Anmeldung/Änderung (leer lassen zum Deaktivieren)
 $config['mailintern'] = 'mail@example.net';
+// Öffentliche URL der Anwendung (mit abschließendem Slash), wird für die Links in den E-Mails verwendet
 $config['url'] = 'https://example.net/anmeldung/';
+
+// Text der Bestätigungs-E-Mail an die verantwortliche Person. {URL} = Link zur Anmeldung
 $config['mailmessage'] = "Hallo, du kannst deine Anmeldung unter dieser URL einsehen: \r\n\r\n{URL} \r\n\r\nViele Grüße";
+// Text der internen E-Mail. {URL} = aktueller Stand, {URLINT} = Stand zum Zeitpunkt dieser Änderung
 $config['mailmessageintern'] = "Aktuellste Anmeldung: {URL}\r\nAnmeldung zum Zeitpunkt der E-Mail: {URLINT}\r\nViele Grüße";
+
+// Bankverbindung für die Überweisung (HTML erlaubt)
 $config['bankdetails'] = "                Kontoinhaber: ABCD e.V.<br>
                 IBAN: ABCD<br>
                 BIC: ABCD<br>";

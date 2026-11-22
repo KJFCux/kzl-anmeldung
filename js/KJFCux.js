@@ -1,271 +1,149 @@
-let tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-let tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-    return new bootstrap.Tooltip(tooltipTriggerEl)
-})
+// Rabatt-Faktoren für Geschwisterkinder (Anteil vom Beitrag pro Person)
+const BEITRAGSFAKTOR = {
+    '2Geschwister': 0.75,
+    'WeitereGeschwister': 0.5
+};
 
-
-document.getElementById('add-teilnehmer').addEventListener('click', function () {
-    const container = document.getElementById('teilnehmer-list');
-    const newRow = document.createElement('tr');
-    newRow.innerHTML = `
-        <td>
-            <div>
-                <input type="text" class="form-control" name="Teilnehmer[Vorname][]" placeholder="Vorname" required>
-                <input type="text" class="form-control mb-2" name="Teilnehmer[Name][]" placeholder="Nachname" required>
-            </div>
-        </td>
-        <td>
-            <div>
-                <input type="text" class="form-control mb-2" name="Teilnehmer[Strasse][]" placeholder="Straße/Hausnummer" required>
-                <input type="text" class="form-control" name="Teilnehmer[PLZ][]" placeholder="PLZ" required>
-                <input type="text" class="form-control" name="Teilnehmer[Ort][]" placeholder="Ort" required>
-            </div>
-        </td>
-        <td>
-            <div>
-                <input type="date" class="form-control mb-2" name="Teilnehmer[Geburtsdatum][]" required>
-                <select name="Teilnehmer[Geschlecht][]" class="form-control" required>
-                    <option value="">Bitte wählen</option>
-                    <option value="D">D</option>
-                    <option value="M">M</option>
-                    <option value="W">W</option>
-                </select>
-            </div>
-        </td>
-        <td>
-            <select name="Teilnehmer[Status][]" class="form-control mb-2" required>
-                <option value="1Geschwister">Teilnehmender</option>
-                <option value="2Geschwister">2. Geschwisterkind</option>
-                <option value="WeitereGeschwister">Weiteres Geschwisterkind</option>
-                <option value="Betreuer">Betreuer</option>
-                <option value="Mitarbeiter">Mitarbeiter</option>
-            </select>
-        </td>
-        <td>
-            <div>
-                <select name="Teilnehmer[Essgewohnheiten][]" class="form-control mb-2">
-                    <option selected value="Alles">Alles</option>
-                    <option value="Vegetarisch">Vegetarisch</option>
-                    <option value="Vegan">Vegan</option>
-                    <option value="Sonstiges">Sonstiges</option>
-                </select>
-                <input type="text" class="form-control" name="Teilnehmer[EssgewohnheitenSonstiges][]" placeholder="Sonstige Essgewohnheiten" style="display: none;">
-            </div>
-        </td>
-        <td>
-            <div>
-                <select name="Teilnehmer[Unvertraeglichkeiten][0][]" class="form-control mb-2" multiple>
-                    <option selected value="keine">Keine</option>
-                    <option value="Erdnuesse">Erdnüsse</option>
-                    <option value="Gluten">Gluten</option>
-                    <option value="Laktose">Laktose</option>
-                    <option value="Schalenfruechte">Schalenfrüchte</option>
-                    <option value="Schalentiere">Schalentiere</option>
-                    <option value="Sellerie">Sellerie</option>
-                    <option value="Senf">Senf</option>
-                    <option value="Sesam">Sesam</option>
-                    <option value="Soja">Soja</option>
-                    <option value="Sulfite">Sulfite</option>
-                    <option value="Sonstiges">Sonstiges</option>
-                </select>
-                <input type="text" class="form-control" name="Teilnehmer[UnvertraeglichkeitenSonstiges][]" placeholder="Sonstige Unverträglichkeiten" style="display: none;">
-            </div>
-        </td>
-    `;
-
-    // Neuen Index berechnen
-    const newIndex = container.querySelectorAll('tr').length;
-
-    // Zur Tabelle hinzufügen
-    container.appendChild(newRow);
-    addEventListenersToRow(newRow, newIndex);
-
-    // Update participant count and total cost
-    updateParticipantCountAndCost();
-});
-
-// Event-Listener für bestehende Felder hinzufügen
-function addEventListenersToRow(row, index) {
-    // Aktualisiere die Namen der Felder mit dem richtigen Index
-    row.querySelectorAll('[name]').forEach(function (input) {
-        const originalName = input.getAttribute('name');
-        input.setAttribute('name', originalName.replace(/\[\d+\]/, `[${index}]`));
-    });
-
-    // Add event listener to the "Status" dropdown
-    const statusDropdown = row.querySelector('select[name="Teilnehmer[Status][]"]');
-    statusDropdown.addEventListener('change', updateParticipantCountAndCost);
-}
-
-function updateParticipantCountAndCost() {
-    const rows = document.querySelectorAll('#teilnehmer-list tr');
-    const costPerPerson = parseInt(document.getElementById('cost-pp').textContent);
-    let totalCost = 0;
-    let countTeilnehmender = 0;
-    let count2Geschwister = 0;
-
-    rows.forEach((row, index) => {
-        const status = row.querySelector('select[name="Teilnehmer[Status][]"]').value;
-        let participantCost = costPerPerson;
-
-        if (status === '1Geschwister') {
-            countTeilnehmender++;
-        } else if (status === '2Geschwister') {
-            participantCost *= 0.75;
-            count2Geschwister++;
-        } else if (status === 'WeitereGeschwister') {
-            participantCost *= 0.5;
-        }
-
-        totalCost += participantCost;
-    });
-
-    document.getElementById('participant-count').textContent = rows.length;
-    document.getElementById('total-cost').textContent = totalCost.toFixed(2);
-
-    // Validate status dropdowns
-    rows.forEach((row) => {
-        const statusDropdown = row.querySelector('select[name="Teilnehmer[Status][]"]');
-        const status = statusDropdown.value;
-
-        if (status === '2Geschwister' && countTeilnehmender < 1) {
-            statusDropdown.setCustomValidity('Es muss ein Teilnehmer vorhanden sein.');
-        } else if (status === 'WeitereGeschwister' && count2Geschwister < 1) {
-            statusDropdown.setCustomValidity('Es muss ein 2. Geschwisterkind vorhanden sein.');
-        } else {
-            statusDropdown.setCustomValidity('');
-        }
-        statusDropdown.reportValidity();
-    });
-
-}
+// Felder, die zwischen verantwortlicher Person und erstem Teilnehmenden synchronisiert werden
+const SYNC_FELDER = ['Vorname', 'Name', 'Strasse', 'PLZ', 'Ort'];
 
 document.addEventListener('DOMContentLoaded', function () {
-
-    const verantwortlicherFields = {
-        vorname: document.querySelector('input[name="Verantwortlicher[Vorname]"]'),
-        name: document.querySelector('input[name="Verantwortlicher[Name]"]'),
-        strasse: document.querySelector('input[name="Verantwortlicher[Strasse]"]'),
-        plz: document.querySelector('input[name="Verantwortlicher[PLZ]"]'),
-        ort: document.querySelector('input[name="Verantwortlicher[Ort]"]')
-    };
-
-    const teilnehmerFields = {
-        vorname: document.querySelector('input[name="Teilnehmer[Vorname][]"]'),
-        name: document.querySelector('input[name="Teilnehmer[Name][]"]'),
-        strasse: document.querySelector('input[name="Teilnehmer[Strasse][]"]'),
-        plz: document.querySelector('input[name="Teilnehmer[PLZ][]"]'),
-        ort: document.querySelector('input[name="Teilnehmer[Ort][]"]')
-    };
-
-    function syncFields(source, target) {
-        source.addEventListener('input', function () {
-            target.value = source.value;
-        });
-    }
-
-    // Synchronize Verantwortlicher fields with the first Teilnehmer fields
-    syncFields(verantwortlicherFields.vorname, teilnehmerFields.vorname);
-    syncFields(verantwortlicherFields.name, teilnehmerFields.name);
-    syncFields(verantwortlicherFields.strasse, teilnehmerFields.strasse);
-    syncFields(verantwortlicherFields.plz, teilnehmerFields.plz);
-    syncFields(verantwortlicherFields.ort, teilnehmerFields.ort);
-
-    // Synchronize the first Teilnehmer fields with Verantwortlicher fields
-    syncFields(teilnehmerFields.vorname, verantwortlicherFields.vorname);
-    syncFields(teilnehmerFields.name, verantwortlicherFields.name);
-    syncFields(teilnehmerFields.strasse, verantwortlicherFields.strasse);
-    syncFields(teilnehmerFields.plz, verantwortlicherFields.plz);
-    syncFields(teilnehmerFields.ort, verantwortlicherFields.ort);
-
-    const input_jfname = document.getElementById("Feuerwehr");
-    const display_jfname = document.getElementById("jf-name");
-    input_jfname.addEventListener('input', function () {
-        display_jfname.textContent = input_jfname.value;
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
+        new bootstrap.Tooltip(el);
     });
 
-    // Update participant count and total cost
-    updateParticipantCountAndCost();
+    const teilnehmerList = document.getElementById('teilnehmer-list');
+    const template = document.getElementById('teilnehmer-template');
+    const costPerPerson = parseFloat(document.getElementById('cost-pp').textContent.replace(',', '.')) || 0;
 
-    // Funktion zur Steuerung der Anzeige des Freitextfeldes für OU
-    const selectOU = document.getElementById("Organisationseinheit");
-    selectOU.addEventListener('change', function () {
-        const textbox = document.getElementById("OrganisationseinheitSonstige");
-        if (this.value === "extern") {
+    function formatEuro(betrag) {
+        return betrag.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    }
+
+    // Freitextfeld "Sonstiges" passend zur Auswahl ein- oder ausblenden
+    function toggleSonstiges(select) {
+        const textbox = select.parentElement.querySelector('.sonstiges-input');
+        const show = Array.from(select.selectedOptions).some(function (option) {
+            return option.value === 'Sonstiges';
+        });
+        textbox.hidden = !show;
+        textbox.required = show;
+        if (!show) {
             textbox.value = '';
-            textbox.style.display = 'block';
-        } else {
-            textbox.style.display = 'none';
-            textbox.value = this.value;
-        }
-    });
-
-    // Funktion zur Steuerung der Anzeige des Freitextfeldes für Essgewohnheiten
-    document.querySelectorAll('select[name="Teilnehmer[Essgewohnheiten][]"]').forEach(function (select) {
-        toggleTextbox(select, 'EssgewohnheitenSonstiges');
-        select.addEventListener('change', function () {
-            toggleTextbox(this, 'EssgewohnheitenSonstiges');
-        });
-    });
-
-    // Funktion zur Steuerung der Anzeige des Freitextfeldes für Unverträglichkeiten
-    document.querySelectorAll('select[name^="Teilnehmer[Unvertraeglichkeiten]"]').forEach(function (select) {
-        toggleTextbox(select, 'UnvertraeglichkeitenSonstiges');
-        select.addEventListener('change', function () {
-            toggleTextbox(this, 'UnvertraeglichkeitenSonstiges');
-        })
-    });
-
-    // Funktion, um das passende Freitextfeld ein- oder auszublenden
-    function toggleTextbox(selectElement, textboxName) {
-        const row = selectElement.closest('tr');
-        const textbox = row.querySelector(`input[name^="Teilnehmer[${textboxName}]"]`);
-        if (selectElement.value === "Sonstiges" || Array.from(selectElement.selectedOptions).some(option => option.value === "Sonstiges")) {
-            textbox.style.display = 'block';
-        } else {
-            textbox.style.display = 'none';
-            textbox.value = ''; // Textbox leeren, wenn sie ausgeblendet wird
         }
     }
 
-    // Initiale Event-Listener hinzufügen
-    document.querySelectorAll('#teilnehmer-list tr').forEach(function (row, index) {
-        addEventListenersToRow(row, index);
-    });
+    function updateParticipantCountAndCost(report) {
+        const statusDropdowns = teilnehmerList.querySelectorAll('.teilnehmer-status');
+        let totalCost = 0;
+        let countTeilnehmender = 0;
+        let count2Geschwister = 0;
 
-    // Funktion, um die Logik auch bei neu hinzugefügten Teilnehmern anzuwenden
+        statusDropdowns.forEach(function (dropdown) {
+            const status = dropdown.value;
+            totalCost += costPerPerson * (BEITRAGSFAKTOR[status] || 1);
+            if (status === '1Geschwister') {
+                countTeilnehmender++;
+            } else if (status === '2Geschwister') {
+                count2Geschwister++;
+            }
+        });
+
+        document.getElementById('participant-count').textContent = statusDropdowns.length;
+        document.getElementById('total-cost').textContent = formatEuro(totalCost);
+
+        // Geschwisterrabatt nur, wenn auch ein (2.) Geschwisterkind angemeldet ist
+        statusDropdowns.forEach(function (dropdown) {
+            if (dropdown.value === '2Geschwister' && countTeilnehmender < 1) {
+                dropdown.setCustomValidity('Es muss ein Teilnehmer vorhanden sein.');
+            } else if (dropdown.value === 'WeitereGeschwister' && count2Geschwister < 1) {
+                dropdown.setCustomValidity('Es muss ein 2. Geschwisterkind vorhanden sein.');
+            } else {
+                dropdown.setCustomValidity('');
+            }
+            if (report === true) {
+                dropdown.reportValidity();
+            }
+        });
+    }
+
+    function initRow(row) {
+        row.querySelectorAll('select.has-sonstiges').forEach(function (select) {
+            toggleSonstiges(select);
+            select.addEventListener('change', function () {
+                toggleSonstiges(select);
+            });
+        });
+        row.querySelector('.teilnehmer-status').addEventListener('change', function () {
+            updateParticipantCountAndCost(true);
+        });
+    }
+
+    teilnehmerList.querySelectorAll('tr').forEach(initRow);
+
     document.getElementById('add-teilnehmer').addEventListener('click', function () {
-        const lastRow = document.querySelector('#teilnehmer-list tr:last-child');
-        const essgewohnheitenSelect = lastRow.querySelector('select[name^="Teilnehmer[Essgewohnheiten]"]');
-        const unvertraeglichkeitenSelect = lastRow.querySelector('select[name^="Teilnehmer[Unvertraeglichkeiten]"]');
-
-
-        // Event-Listener für die neuen Dropdowns hinzufügen
-        toggleTextbox(essgewohnheitenSelect, 'EssgewohnheitenSonstiges');
-        essgewohnheitenSelect.addEventListener('change', function () {
-            toggleTextbox(this, 'EssgewohnheitenSonstiges');
+        const index = teilnehmerList.querySelectorAll('tr').length;
+        const row = template.content.firstElementChild.cloneNode(true);
+        row.querySelectorAll('[name*="__INDEX__"]').forEach(function (input) {
+            input.name = input.name.replace('__INDEX__', index);
         });
-
-        toggleTextbox(unvertraeglichkeitenSelect, 'UnvertraeglichkeitenSonstiges');
-        unvertraeglichkeitenSelect.addEventListener('change', function () {
-            toggleTextbox(this, 'UnvertraeglichkeitenSonstiges');
-        });
+        teilnehmerList.appendChild(row);
+        initRow(row);
+        updateParticipantCountAndCost();
+        row.querySelector('input').focus();
     });
 
     document.getElementById('delete-last-teilnehmer').addEventListener('click', function () {
-        const teilnehmerList = document.getElementById('teilnehmer-list');
-        const rows = teilnehmerList.getElementsByTagName('tr');
-        if (rows.length > 1) {
-            teilnehmerList.removeChild(rows[rows.length - 1]);
-        } else {
+        const rows = teilnehmerList.querySelectorAll('tr');
+        if (rows.length <= 1) {
             alert('Der erste Teilnehmer kann nicht gelöscht werden.');
+            return;
         }
-        // Update participant count and total cost
+        const lastRow = rows[rows.length - 1];
+        const hatDaten = Array.from(lastRow.querySelectorAll('input[type="text"], input[type="date"]')).some(function (input) {
+            return input.value.trim() !== '';
+        });
+        if (hatDaten && !confirm('Den letzten Teilnehmer wirklich löschen?')) {
+            return;
+        }
+        lastRow.remove();
         updateParticipantCountAndCost();
     });
 
-    const textbox = document.getElementById("OrganisationseinheitSonstige");
-    if (document.getElementById("Organisationseinheit").value === "extern") {
-        textbox.style.display = 'block';
-    }
+    // Verantwortliche Person und erster Teilnehmender werden gegenseitig synchronisiert
+    const ersteZeile = teilnehmerList.querySelector('tr');
+    SYNC_FELDER.forEach(function (feld) {
+        const verantwortlicher = document.querySelector('input[name="Verantwortlicher[' + feld + ']"]');
+        const teilnehmer = ersteZeile.querySelector('input[name="Teilnehmer[' + feld + '][]"]');
+        verantwortlicher.addEventListener('input', function () {
+            teilnehmer.value = verantwortlicher.value;
+        });
+        teilnehmer.addEventListener('input', function () {
+            verantwortlicher.value = teilnehmer.value;
+        });
+    });
+
+    // Name der Jugendfeuerwehr im Verwendungszweck anzeigen
+    const inputJfName = document.getElementById('Feuerwehr');
+    const displayJfName = document.getElementById('jf-name');
+    inputJfName.addEventListener('input', function () {
+        displayJfName.textContent = inputJfName.value;
+    });
+
+    // Freitextfeld für externe Organisationseinheiten
+    const selectOU = document.getElementById('Organisationseinheit');
+    const textboxOU = document.getElementById('OrganisationseinheitSonstige');
+    textboxOU.hidden = selectOU.value !== 'extern';
+    selectOU.addEventListener('change', function () {
+        if (selectOU.value === 'extern') {
+            textboxOU.value = '';
+            textboxOU.hidden = false;
+            textboxOU.focus();
+        } else {
+            textboxOU.hidden = true;
+            textboxOU.value = selectOU.value;
+        }
+    });
+
+    updateParticipantCountAndCost();
 });

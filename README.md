@@ -14,8 +14,10 @@ Die Anmeldungen werden als XML-Dateien gespeichert und lassen sich in die
 - Bestätigungs-E-Mail mit dem Link an die verantwortliche Person
 - Interne Benachrichtigung bei jeder Anmeldung und Änderung, inklusive Link auf den damaligen Stand
 - Teilnahmeliste mit Adresse, Geburtsdatum, Geschlecht, Status, Essgewohnheiten und Unverträglichkeiten
-- Automatische Berechnung des Gesamtbetrags inklusive Geschwisterrabatt
-  (2. Geschwisterkind 75 %, jedes weitere 50 % des Beitrags)
+- Automatische Berechnung des Gesamtbetrags inklusive konfigurierbarem Geschwisterrabatt
+  (Standard: 2. Geschwisterkind 75 %, jedes weitere 50 % des Beitrags)
+- Anzahl der Personen und zu zahlender Betrag in den E-Mails
+- Spam-Schutz durch ein für Menschen unsichtbares Köderfeld (Honeypot) und eine Begrenzung der Speichervorgänge pro IP-Adresse
 - Anmeldeschluss: Danach ist die Anmeldung nur noch lesbar
 - Versionierung: Jede Änderung wird zusätzlich als eigene Datei gespeichert
 
@@ -50,13 +52,25 @@ Alle Einstellungen stehen in der `config.php`:
 | `organizationalunit` | Bezeichnung der Organisationseinheit, z. B. „Stadt, - Gemeinde“ |
 | `organizationalunits` | Auswahlliste der Organisationseinheiten. Die Option „Extern“ mit Freitext gibt es immer zusätzlich. |
 | `cost_pp` | Teilnahmebeitrag pro Person in Euro |
+| `discounts` | Anteil am Beitrag je Status, z. B. `['2Geschwister' => 0.75, 'WeitereGeschwister' => 0.5]`. Nicht aufgeführte Status zahlen den vollen Beitrag, `0` bedeutet kostenlos. Mögliche Status: `1Geschwister` (Teilnehmender), `2Geschwister`, `WeitereGeschwister`, `Betreuer`, `Mitarbeiter` |
 | `block_registration_at` | Anmeldeschluss im ISO-8601-Format, z. B. `2025-05-17T06:00:00+02:00` |
 | `mailabsender` | Absenderadresse der E-Mails |
 | `mailintern` | Empfänger der internen Benachrichtigungen (leer = keine interne E-Mail) |
 | `url` | Öffentliche URL der Anwendung mit abschließendem `/`, wird für die Links in den E-Mails verwendet |
-| `mailmessage` | Text der Bestätigungs-E-Mail. Platzhalter: `{URL}` |
-| `mailmessageintern` | Text der internen E-Mail. Platzhalter: `{URL}` (aktueller Stand), `{URLINT}` (Stand dieser Änderung) |
+| `mailmessage` | Text der Bestätigungs-E-Mail an die verantwortliche Person (Platzhalter siehe unten) |
+| `mailmessageintern` | Text der internen E-Mail (Platzhalter siehe unten) |
 | `bankdetails` | Bankverbindung für die Überweisung (HTML erlaubt) |
+| `max_submissions_per_hour` | Maximale Anzahl Speichervorgänge pro IP-Adresse und Stunde (Standard `20`, `0` = unbegrenzt) |
+
+In den E-Mail-Texten stehen folgende Platzhalter zur Verfügung:
+
+| Platzhalter | Inhalt |
+|---|---|
+| `{URL}` | Link zur Anmeldung (immer der aktuelle Stand) |
+| `{URLINT}` | Link auf den Stand zum Zeitpunkt dieser Änderung |
+| `{FEUERWEHR}` | Name der Jugendfeuerwehr |
+| `{TEILNEHMENDE}` | Anzahl der angemeldeten Personen |
+| `{BETRAG}` | Zu zahlender Gesamtbetrag inklusive Rabatten, z. B. `112,50 €` |
 
 `description` und `bankdetails` werden ungefiltert als HTML ausgegeben. Dort nur vertrauenswürdige Inhalte eintragen.
 
@@ -100,6 +114,10 @@ Unverträglichkeiten). Bitte beachte:
 - Die Anwendung nur über HTTPS betreiben.
 - Die XML-Dateien nach Abschluss der Veranstaltung gemäß eurem Löschkonzept entfernen.
 - Die Dateien in `xml/` sind über `.gitignore` von der Versionsverwaltung ausgeschlossen und dürfen nie committet werden.
+- Für die Begrenzung der Speichervorgänge wird `xml/.ratelimit.json` angelegt. Sie enthält nur gesalzene Hashwerte
+  der IP-Adressen, Einträge werden nach einer Stunde verworfen. Diese Datei wird nicht in die KZL-Software importiert.
+- Ein CSRF-Token ist nicht nötig: Die Anwendung hat keine Anmeldung per Cookie oder Session. Wer ändern will,
+  braucht den geheimen Link, und mit diesem könnte er die Änderung ohnehin direkt abschicken.
 
 ## Lokale Entwicklung
 
@@ -111,7 +129,9 @@ php -S localhost:8000
 Danach ist die Anwendung unter <http://localhost:8000> erreichbar. Der PHP-Entwicklungsserver wertet keine
 `.htaccess` aus, `xml/` ist dort also direkt abrufbar. E-Mails werden lokal nur verschickt, wenn `sendmail` eingerichtet ist.
 
-Verwendete Bibliotheken: [Bootstrap 5.1.3](https://getbootstrap.com/) (lokal in `css/` und `js/` eingebunden).
+Verwendete Bibliotheken: [Bootstrap 5.3.9](https://getbootstrap.com/) (lokal in `css/` und `js/` eingebunden).
+Zum Aktualisieren `bootstrap.min.css`, `bootstrap.bundle.min.js` und die zugehörigen `.map`-Dateien aus dem
+`dist`-Verzeichnis eines neuen Bootstrap-Releases ersetzen.
 
 ## Lizenz
 

@@ -1,9 +1,3 @@
-// Rabatt-Faktoren für Geschwisterkinder (Anteil vom Beitrag pro Person)
-const BEITRAGSFAKTOR = {
-    '2Geschwister': 0.75,
-    'WeitereGeschwister': 0.5
-};
-
 // Felder, die zwischen verantwortlicher Person und erstem Teilnehmenden synchronisiert werden
 const SYNC_FELDER = ['Vorname', 'Name', 'Strasse', 'PLZ', 'Ort'];
 
@@ -14,7 +8,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const teilnehmerList = document.getElementById('teilnehmer-list');
     const template = document.getElementById('teilnehmer-template');
-    const costPerPerson = parseFloat(document.getElementById('cost-pp').textContent.replace(',', '.')) || 0;
+    const costPerPerson = parseFloat(document.getElementById('cost-pp').dataset.betrag) || 0;
+    // Anteil am Beitrag je Status (Geschwisterrabatt), kommt aus der config.php
+    const beitragsfaktoren = JSON.parse(document.getElementById('total-cost').dataset.faktoren || '{}');
 
     function formatEuro(betrag) {
         return betrag.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
@@ -41,7 +37,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         statusDropdowns.forEach(function (dropdown) {
             const status = dropdown.value;
-            totalCost += costPerPerson * (BEITRAGSFAKTOR[status] || 1);
+            totalCost += costPerPerson * (status in beitragsfaktoren ? beitragsfaktoren[status] : 1);
             if (status === '1Geschwister') {
                 countTeilnehmender++;
             } else if (status === '2Geschwister') {

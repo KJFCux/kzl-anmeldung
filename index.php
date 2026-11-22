@@ -128,24 +128,24 @@ function renderTeilnehmerRow(array $item, $index): void
         </td>
         <td>
             <input type="date" class="form-control mb-2" name="Teilnehmer[Geburtsdatum][]" required value="<?php echo if_isset_dt($item, 'Geburtsdatum'); ?>">
-            <select name="Teilnehmer[Geschlecht][]" class="form-control" required>
+            <select name="Teilnehmer[Geschlecht][]" class="form-select" required>
                 <option value="">Bitte wählen</option>
                 <?php renderOptions(GESCHLECHT_OPTIONEN, [(string)($item['Geschlecht'] ?? '')]); ?>
             </select>
         </td>
         <td>
-            <select name="Teilnehmer[Status][]" class="form-control mb-2 teilnehmer-status" required>
+            <select name="Teilnehmer[Status][]" class="form-select mb-2 teilnehmer-status" required>
                 <?php renderOptions(STATUS_OPTIONEN, [(string)($item['Status'] ?? '')]); ?>
             </select>
         </td>
         <td>
-            <select name="Teilnehmer[Essgewohnheiten][]" class="form-control mb-2 has-sonstiges">
+            <select name="Teilnehmer[Essgewohnheiten][]" class="form-select mb-2 has-sonstiges">
                 <?php renderOptions(ESSGEWOHNHEITEN_OPTIONEN, $essgewohnheiten); ?>
             </select>
             <input type="text" class="form-control sonstiges-input" name="Teilnehmer[EssgewohnheitenSonstiges][]" placeholder="Sonstige Essgewohnheiten" value="<?php echo e($essgewohnheitenSonstiges); ?>" hidden>
         </td>
         <td>
-            <select name="Teilnehmer[Unvertraeglichkeiten][<?php echo e($index); ?>][]" class="form-control mb-2 has-sonstiges" multiple>
+            <select name="Teilnehmer[Unvertraeglichkeiten][<?php echo e($index); ?>][]" class="form-select mb-2 has-sonstiges" multiple>
                 <?php renderOptions(UNVERTRAEGLICHKEITEN_OPTIONEN, $unvertraeglichkeiten); ?>
             </select>
             <input type="text" class="form-control sonstiges-input" name="Teilnehmer[UnvertraeglichkeitenSonstiges][]" placeholder="Sonstige Unverträglichkeiten" value="<?php echo e($unvertraeglichkeitenSonstiges); ?>" hidden>
@@ -171,6 +171,74 @@ function mailSubject(string $subject): string
 {
     return mb_encode_mimeheader($subject, 'UTF-8', 'B');
 }
+
+function formatEuro(float $betrag): string
+{
+    return number_format($betrag, 2, ',', '.');
+}
+
+/**
+ * Berechnet den Gesamtbeitrag. $faktoren enthält je Status den Anteil am
+ * Beitrag pro Person (z. B. 0.75 für das 2. Geschwisterkind), sonst gilt 1.
+ */
+function berechneBeitrag(array $statusListe, float $beitragProPerson, array $faktoren): float
+{
+    $summe = 0.0;
+    foreach ($statusListe as $status) {
+        $summe += $beitragProPerson * (float)($faktoren[$status] ?? 1);
+    }
+    return $summe;
+}
+
+/**
+ * Einfache Begrenzung der Speichervorgänge pro IP-Adresse und Stunde, um
+ * massenhafte Anmeldungen und E-Mails durch Bots zu verhindern. IP-Adressen
+ * werden nur gesalzen gehasht und nach einer Stunde verworfen.
+ */
+function rateLimitErreicht(string $datei, int $limit): bool
+{
+    if ($limit <= 0) {
+        return false;
+    }
+    $fh = @fopen($datei, 'c+');
+    if ($fh === false) {
+        return false; // Im Zweifel niemanden aussperren
+    }
+    flock($fh, LOCK_EX);
+    $data = json_decode((string)stream_get_contents($fh), true);
+    if (!is_array($data) || empty($data['salt']) || !isset($data['hits']) || !is_array($data['hits'])) {
+        $data = ['salt' => bin2hex(random_bytes(16)), 'hits' => []];
+    }
+    $jetzt = time();
+    foreach ($data['hits'] as $key => $zeiten) {
+        $zeiten = array_values(array_filter((array)$zeiten, function ($t) use ($jetzt) {
+            return (int)$t > $jetzt - 3600;
+        }));
+        if ($zeiten === []) {
+            unset($data['hits'][$key]);
+        } else {
+            $data['hits'][$key] = $zeiten;
+        }
+    }
+    $key = hash('sha256', $data['salt'] . ($_SERVER['REMOTE_ADDR'] ?? ''));
+    $erreicht = count($data['hits'][$key] ?? []) >= $limit;
+    if (!$erreicht) {
+        $data['hits'][$key][] = $jetzt;
+    }
+    ftruncate($fh, 0);
+    rewind($fh);
+    fwrite($fh, json_encode($data));
+    fflush($fh);
+    flock($fh, LOCK_UN);
+    fclose($fh);
+    return $erreicht;
+}
+
+// Beitrag und Geschwisterrabatt
+$beitragProPerson = (float)str_replace(',', '.', (string)($config['cost_pp'] ?? 0));
+$beitragsfaktoren = isset($config['discounts']) && is_array($config['discounts'])
+    ? $config['discounts']
+    : ['2Geschwister' => 0.75, 'WeitereGeschwister' => 0.5];
 
 $registrationEnabled = true;
 try {
@@ -237,6 +305,17 @@ function addAppData($jf, $xml, $XmlData, $key)
 
 if (isset($_POST['Feuerwehr'], $_POST['Organisationseinheit'], $_POST['Verantwortlicher'], $_POST['Teilnehmer'])
     && is_array($_POST['Verantwortlicher']) && is_array($_POST['Teilnehmer'])) {
+    // Honeypot: Dieses Feld ist für Menschen unsichtbar und wird nur von Bots ausgefüllt
+    if (!empty($_POST['homepage'])) {
+        header('Location: ./');
+        exit;
+    }
+    if (rateLimitErreicht('./xml/.ratelimit.json', (int)($config['max_submissions_per_hour'] ?? 20))) {
+        http_response_code(429);
+        die('Von deinem Anschluss wurden in der letzten Stunde zu viele Anmeldungen gespeichert. '
+            . 'Bitte versuche es später erneut. Über "Zurück" im Browser gelangst du zu deinen Eingaben.');
+    }
+
     // XML-Daten aufbauen
     $xml = new DOMDocument("1.0", "utf-16");
     // Gruppe-Element erstellen
@@ -280,6 +359,7 @@ if (isset($_POST['Feuerwehr'], $_POST['Organisationseinheit'], $_POST['Verantwor
     $jf->appendChild($persons);
 
     // Teilnehmer hinzufügen
+    $statusListe = [];
     $vornamen = is_array($teilnehmer["Vorname"] ?? null) ? $teilnehmer["Vorname"] : [];
     foreach ($vornamen as $index => $vorname) {
         $wert = function ($feld, $len = 64) use ($teilnehmer, $index) {
@@ -311,7 +391,9 @@ if (isset($_POST['Feuerwehr'], $_POST['Organisationseinheit'], $_POST['Verantwor
         $person->appendChild(xmlElement($xml, "Geschlecht", isset(GESCHLECHT_OPTIONEN[$geschlecht]) ? $geschlecht : ''));
 
         $status = $wert('Status');
-        $person->appendChild(xmlElement($xml, "Status", isset(STATUS_OPTIONEN[$status]) ? $status : '1Geschwister'));
+        $status = isset(STATUS_OPTIONEN[$status]) ? $status : '1Geschwister';
+        $statusListe[] = $status;
+        $person->appendChild(xmlElement($xml, "Status", $status));
 
         $essgewohnheiten = $wert('Essgewohnheiten');
         if (!isset(ESSGEWOHNHEITEN_OPTIONEN[$essgewohnheiten])) {
@@ -363,15 +445,23 @@ if (isset($_POST['Feuerwehr'], $_POST['Organisationseinheit'], $_POST['Verantwor
     $header = 'From: ' . $config['mailabsender'] . "\r\n" . 'Content-Type: text/plain; charset=utf-8' . "\r\n" .
         'X-Mailer: PHP/' . phpversion();
 
+    $feuerwehrName = $old_xml === null ? input($_POST["Feuerwehr"]) : (string)($XmlData['Feuerwehr'] ?? '');
+    $platzhalter = [
+        '{URL}' => $url,
+        '{URLINT}' => $urlintern,
+        '{FEUERWEHR}' => $feuerwehrName,
+        '{TEILNEHMENDE}' => (string)count($statusListe),
+        '{BETRAG}' => formatEuro(berechneBeitrag($statusListe, $beitragProPerson, $beitragsfaktoren)) . ' €',
+    ];
+
     $email = trim((string)($verantwortlicherPost["Email"] ?? ''));
     if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $message = str_replace('{URL}', $url, $config['mailmessage']);
+        $message = strtr($config['mailmessage'], $platzhalter);
         mail($email, mailSubject('Anmeldung zum ' . $config['headline']), $message, $header);
     }
     if (!empty($config['mailintern'])) {
-        $messageintern = str_replace(['{URL}', '{URLINT}'], [$url, $urlintern], $config['mailmessageintern']);
-        $feuerwehrName = $old_xml === null ? input($_POST["Feuerwehr"]) : (string)($XmlData['Feuerwehr'] ?? '');
-        mail($config['mailintern'], mailSubject('Anmeldung von ' . $feuerwehrName . ', Teilnehmende: ' . $persons->childNodes->length), $messageintern, $header);
+        $messageintern = strtr($config['mailmessageintern'], $platzhalter);
+        mail($config['mailintern'], mailSubject('Anmeldung von ' . $feuerwehrName . ', Teilnehmende: ' . count($statusListe)), $messageintern, $header);
     }
 
     setcookie("saved", "1");
@@ -421,6 +511,10 @@ if (!empty($_COOKIE['saved'])) {
     $hasOU = isset($XmlData['Organisationseinheit']) && $XmlData['Organisationseinheit'] !== '';
     ?>
     <form method="POST" id="form">
+        <div class="hp-feld" aria-hidden="true">
+            <label for="homepage">Bitte leer lassen</label>
+            <input type="text" name="homepage" id="homepage" tabindex="-1" autocomplete="off">
+        </div>
         <div class="row mb-4">
             <div class="col-sm-3">
                 <label for="Feuerwehr">Jugendfeuerwehr:</label>
@@ -431,7 +525,7 @@ if (!empty($_COOKIE['saved'])) {
             </div>
             <div class="col-sm-3">
                 <label for="Organisationseinheit"><?php echo $config['organizationalunit']; ?></label>
-                <select class="form-control" id="Organisationseinheit"
+                <select class="form-select" id="Organisationseinheit"
                         required <?php echo_if_isset($XmlData, 'Organisationseinheit', 'disabled'); ?>>
                     <option value="">Bitte wählen</option>
                     <?php foreach ($config['organizationalunits'] as $unit):
@@ -525,8 +619,20 @@ if (!empty($_COOKIE['saved'])) {
         <div class="row mb-4">
             <div class="col-sm-12">
                 <h5>Kosten</h5>
-                <p>Pro Person: <span id="cost-pp"><?php echo e($config['cost_pp']); ?></span> €</p>
-                <p>Gesamtbetrag: <span id="total-cost">0</span> €</p>
+                <p>Pro Person: <span id="cost-pp" data-betrag="<?php echo e($beitragProPerson); ?>"><?php echo formatEuro($beitragProPerson); ?></span> €
+                    <?php
+                    $rabatte = [];
+                    foreach ($beitragsfaktoren as $status => $faktor) {
+                        if (isset(STATUS_OPTIONEN[$status]) && (float)$faktor != 1) {
+                            $rabatte[] = e(STATUS_OPTIONEN[$status]) . ': ' . formatEuro($beitragProPerson * (float)$faktor) . ' €';
+                        }
+                    }
+                    if ($rabatte) {
+                        echo '<br><small class="text-body-secondary">' . implode(', ', $rabatte) . '</small>';
+                    }
+                    ?>
+                </p>
+                <p>Gesamtbetrag: <span id="total-cost" data-faktoren="<?php echo e(json_encode($beitragsfaktoren)); ?>">0</span> €</p>
                 <p><strong>Bankverbindung</strong><br>
 <?php echo $config['bankdetails']; ?>
                 Verwendungszweck: <span id="jf-name"><?php echo_if_isset($XmlData, 'Feuerwehr'); ?></span>, <span id="participant-count">X</span> TN</p>

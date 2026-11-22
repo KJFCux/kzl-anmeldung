@@ -50,9 +50,18 @@ function generateRandomString($length = 10): string
     return $randomString;
 }
 
+/**
+ * Liefert skalare Werte als String, alles andere (z. B. Arrays aus
+ * manipulierten Formulardaten oder verschachtelten XML-Elementen) als ''.
+ */
+function text($value): string
+{
+    return is_scalar($value) ? (string)$value : '';
+}
+
 function e($value): string
 {
-    return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+    return htmlspecialchars(text($value), ENT_QUOTES, 'UTF-8');
 }
 
 function echo_if_isset($array, $key, $echo = null): void
@@ -68,10 +77,8 @@ function echo_if_isset($array, $key, $echo = null): void
 
 function if_isset_dt($array, $key): string
 {
-    if (isset($array[$key]) && $array[$key] !== '') {
-        return date('Y-m-d', strtotime($array[$key]));
-    }
-    return '';
+    $timestamp = strtotime(text($array[$key] ?? ''));
+    return $timestamp === false ? '' : date('Y-m-d', $timestamp);
 }
 
 function input($string, $len = 64): string
@@ -130,12 +137,12 @@ function renderTeilnehmerRow(array $item, $index): void
             <input type="date" class="form-control mb-2" name="Teilnehmer[Geburtsdatum][]" required value="<?php echo if_isset_dt($item, 'Geburtsdatum'); ?>">
             <select name="Teilnehmer[Geschlecht][]" class="form-select" required>
                 <option value="">Bitte wählen</option>
-                <?php renderOptions(GESCHLECHT_OPTIONEN, [(string)($item['Geschlecht'] ?? '')]); ?>
+                <?php renderOptions(GESCHLECHT_OPTIONEN, [text($item['Geschlecht'] ?? '')]); ?>
             </select>
         </td>
         <td>
             <select name="Teilnehmer[Status][]" class="form-select mb-2 teilnehmer-status" required>
-                <?php renderOptions(STATUS_OPTIONEN, [(string)($item['Status'] ?? '')]); ?>
+                <?php renderOptions(STATUS_OPTIONEN, [text($item['Status'] ?? '')]); ?>
             </select>
         </td>
         <td>
@@ -460,7 +467,7 @@ if (isset($_POST['Feuerwehr'], $_POST['Organisationseinheit'], $_POST['Verantwor
     $header = 'From: ' . $config['mailabsender'] . "\r\n" . 'Content-Type: text/plain; charset=utf-8' . "\r\n" .
         'X-Mailer: PHP/' . phpversion();
 
-    $feuerwehrName = $old_xml === null ? input($_POST["Feuerwehr"]) : (string)($XmlData['Feuerwehr'] ?? '');
+    $feuerwehrName = $old_xml === null ? input($_POST["Feuerwehr"]) : text($XmlData['Feuerwehr'] ?? '');
     $platzhalter = [
         '{URL}' => $url,
         '{URLINT}' => $urlintern,
@@ -469,7 +476,7 @@ if (isset($_POST['Feuerwehr'], $_POST['Organisationseinheit'], $_POST['Verantwor
         '{BETRAG}' => formatEuro(berechneBeitrag($statusListe, $beitragProPerson, $beitragsfaktoren)) . ' €',
     ];
 
-    $email = trim((string)($verantwortlicherPost["Email"] ?? ''));
+    $email = input($verantwortlicherPost["Email"] ?? '', 254);
     if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $message = strtr($config['mailmessage'], $platzhalter);
         mail($email, mailSubject('Anmeldung zum ' . $config['headline']), $message, $header);
